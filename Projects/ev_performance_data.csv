@@ -1,0 +1,6 @@
+vehicle_id,distance_traveled,energy_consumed,baseline_emissions,actual_emissions,regenerative_braking_efficiency,range_optimization
+1,120,15,200,150,0.85,0.9
+2,100,12,180,140,0.8,0.85
+3,150,18,220,160,0.9,0.92
+4,130,14,210,155,0.88,0.89
+5,110,13,190,145,0.82,0.87

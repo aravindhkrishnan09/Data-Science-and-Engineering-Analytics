@@ -1,0 +1,6 @@
+vehicle_id,carbon_reduction,sustainable_material_usage,energy_source,waste_management_practices
+1,50,0.7,Solar,Recycling
+2,40,0.6,Wind,Recycling
+3,60,0.8,Hydro,Composting
+4,55,0.75,Solar,Recycling
+5,45,0.65,Wind,Composting
