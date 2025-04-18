@@ -9,12 +9,12 @@ st.title('Central Limit Theorem in EV Systems')
 # Set random seed for reproducibility
 np.random.seed(42)
 
-#Variables
-population_size = 10000
+#For loop variables
 sample_sizes = [5, 30, 100]
 
 # Sidebar for user input
 st.sidebar.header('User Input')
+population_size = st.sidebar.slider('Population Size', min_value=1000, max_value=100000, value=10000, step=1000)
 sample_size = st.sidebar.slider('Sample Size', min_value=5, max_value=100, value=10, step=5)
 num_samples = st.sidebar.slider('Number of Samples', min_value=100, max_value=10000, value=10000, step=100)
 
@@ -25,6 +25,23 @@ def simulate_sample_means(population, sample_size, num_samples):
             sample = np.random.choice(population, size=sample_size, replace=True)
             sample_means.append(np.mean(sample))
     return sample_means
+
+# Function to generate sample means
+def generate_sample_means(population):
+    means = []
+    for _ in range(num_samples):
+        sample = np.random.choice(population, size=sample_size, replace=True)
+
+        if include_drift:
+            drift = np.linspace(0, 20, sample_size)
+            sample = sample + drift
+
+        if include_autocorrelation:
+            for j in range(1, len(sample)):
+                sample[j] = 0.7 * sample[j-1] + 0.3 * sample[j]
+
+        means.append(np.mean(sample))
+    return means
 
 tabs = st.tabs(["Sampling Battery Range & Effect of Sample Size", "Real-world Scenario Discussion"])
 with tabs[0]:
@@ -128,7 +145,7 @@ with tabs[1]:
 
         # plot a seaborn chart to show the average charging time of EVs with only 10 samples
         # Simulate a population of 10000 EV charging times (in hours), using exponential distribution
-        charging_time_population = np.random.exponential(scale=2, size=population_size)  # mean ~2 hours
+        charging_time_population = np.random.exponential(scale=8, size=population_size)  # mean ~8 hours
         sample_means = simulate_sample_means(charging_time_population, sample_size, num_samples)
         fig, ax = plt.subplots(figsize=(10, 5), dpi=300)
         sns.histplot(sample_means, bins=50, kde=True, color='blue', ax=ax)
@@ -146,3 +163,66 @@ with tabs[1]:
                     verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
 
         st.pyplot(fig)
+
+        st.subheader("Independent and identically distributed (i.i.d.) vs. Non-i.i.d.")
+       
+        include_drift = st.checkbox("Include Drift (Non-i.i.d.) - Battery capacity decreasing over time")
+        st.markdown("_Drift refers to a gradual change in the mean of the population over time. This can occur due to factors such as sensor aging or environmental changes._")
+        include_autocorrelation = st.checkbox("Include Autocorrelation (Non-i.i.d.) - Wheel speed, RPM, and torque are correlated")
+        st.markdown("_Autocorrelation refers to the correlation of a variable with itself over successive time intervals. This can occur in time series data where the current value is influenced by previous values.\n" \
+        "70% of the previous value and 30% of the original current value_")
+
+        if include_drift or include_autocorrelation:
+            st.info("You added **non-i.i.d. behavior**. CLT may **not hold cleanly**. Distributions may be skewed or wider than expected.")
+        else:
+            st.success("Both populations are **i.i.d.**. The sampling distributions approximate normal curves, showing CLT in action.")
+
+        pop_normal =  np.random.normal(loc=8, scale=10, size=population_size)
+        pop_exp = np.random.exponential(scale=8, size=population_size)
+
+        fig_pop, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+        sns.histplot(pop_normal, bins=50, kde=True, color='skyblue', ax=ax1)
+        sns.histplot(pop_exp, bins=50, kde=True, color='orange', ax=ax2)
+        ax1.set_title("Normal Distribution")
+        ax1.set_xlabel("Charging Time (hours)")
+        ax1.set_ylabel('Frequency')
+        ax1.axvline(np.mean(pop_normal), color='red', linestyle='--', label='Mean Normal: {:.2f}'.format(np.mean(pop_normal)))
+        ax1.axvline(np.mean(pop_normal) + np.std(pop_normal), color='green', linestyle='--', label='Mean + SD: {:.2f}'.format(np.mean(pop_normal) + np.std(pop_normal)))
+        ax1.axvline(np.mean(pop_normal) - np.std(pop_normal), color='green', linestyle='--', label='Mean - SD: {:.2f}'.format(np.mean(pop_normal) - np.std(pop_normal)))
+        ax2.set_title("Exponential Distribution")
+        ax2.set_xlabel("Charging Time (hours)")
+        ax2.set_ylabel('Frequency')
+        ax2.axvline(np.mean(pop_exp), color='red', linestyle='--', label='Mean Exp: {:.2f}'.format(np.mean(pop_exp)))
+        ax2.axvline(np.mean(pop_exp) + np.std(pop_exp), color='green', linestyle='--', label='Mean + SD: {:.2f}'.format(np.mean(pop_exp) + np.std(pop_exp)))
+        ax2.axvline(np.mean(pop_exp) - np.std(pop_exp), color='green', linestyle='--', label='Mean - SD: {:.2f}'.format(np.mean(pop_exp) - np.std(pop_exp)))
+        ax1.legend()
+        ax2.legend()
+        st.pyplot(fig_pop)
+
+        # Get sample means
+        sample_means_normal = generate_sample_means(pop_normal)
+        sample_means_exp = generate_sample_means(pop_exp)
+
+        # Plot sampling distributions side-by-side
+        st.subheader("Sampling Distributions of Sample Means")
+        fig_samples, (ax3, ax4) = plt.subplots(1, 2, figsize=(14, 5))
+        sns.histplot(sample_means_normal, bins=50, kde=True, color='salmon', ax=ax3)
+        sns.histplot(sample_means_exp, bins=50, kde=True, color='lightgreen', ax=ax4)
+
+        # Add vertical lines and labels
+        ax3.axvline(np.mean(sample_means_normal), color='red', linestyle='--', label='Mean Normal: {:.2f}'.format(np.mean(sample_means_normal)))
+        ax3.axvline(np.mean(sample_means_normal) + np.std(sample_means_normal), color='green', linestyle='--', label='Mean + SD: {:.2f}'.format(np.mean(sample_means_normal) + np.std(sample_means_normal)))
+        ax3.axvline(np.mean(sample_means_normal) - np.std(sample_means_normal), color='green', linestyle='--', label='Mean - SD: {:.2f}'.format(np.mean(sample_means_normal) - np.std(sample_means_normal)))
+        ax4.axvline(np.mean(sample_means_exp), color='red', linestyle='--', label='Mean Exp: {:.2f}'.format(np.mean(sample_means_exp)))
+        ax4.axvline(np.mean(sample_means_exp) + np.std(sample_means_exp), color='green', linestyle='--', label='Mean + SD: {:.2f}'.format(np.mean(sample_means_exp) + np.std(sample_means_exp)))
+        ax4.axvline(np.mean(sample_means_exp) - np.std(sample_means_exp), color='green', linestyle='--', label='Mean - SD: {:.2f}'.format(np.mean(sample_means_exp) - np.std(sample_means_exp)))
+        ax3.set_title("Sampling Dist. from Normal Population")
+        ax3.set_xlabel("Sample Mean of Charging Time (hours)")
+        ax3.set_ylabel('Frequency')
+        ax4.set_title("Sampling Dist. from Exponential Population")
+        ax4.set_xlabel("Sample Mean of Charging Time (hours)")
+        ax4.set_ylabel('Frequency')
+        ax3.legend()
+        ax4.legend()
+        st.pyplot(fig_samples)
+
