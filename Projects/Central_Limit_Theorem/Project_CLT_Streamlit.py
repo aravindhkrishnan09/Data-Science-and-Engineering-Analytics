@@ -43,7 +43,7 @@ def generate_sample_means(population):
         means.append(np.mean(sample))
     return means
 
-tabs = st.tabs(["Sampling Battery Range & Effect of Sample Size", "Real-world Scenario Discussion"])
+tabs = st.tabs(["Sampling Battery Range & Effect of Sample Size", "Real-world Scenario Discussion","In Simpler Terms"])
 with tabs[0]:
         
         # Simulate a population of 10000 EV battery ranges (in km), using exponential distribution
@@ -226,3 +226,25 @@ with tabs[1]:
         ax4.legend()
         st.pyplot(fig_samples)
 
+with tabs[2]:
+    st.subheader("In Simpler Terms")
+    st.markdown("In EV systems, there are many variables that can be measured, such as:")
+    st.markdown("- **Battery range** - the distance an EV can travel on a single charge.")
+    st.markdown("- **Charging time** - the time it takes to charge an EV battery.")
+    st.markdown("- **Energy consumption** - the amount of energy used by an EV to travel a certain distance.")
+
+    st.markdown("These variables often have unpredictable patterns. For example:")
+    st.markdown("- **Battery range** can vary based on driving conditions, temperature, and battery age.")
+    st.markdown("- **Charging time** can depend on the type of charger used, battery size, and state of charge.")
+    st.markdown("- **Energy consumption** can be affected by driving style, terrain, and vehicle load.")
+
+    st.markdown(
+        """
+        <div style="border: 2px solid #4CAF50; padding: 15px; border-radius: 10px; background-color: #f9f9f9;">
+            <p><strong>The Central Limit Theorem (CLT)</strong> helps us understand how these variables behave when we take samples from a larger population. It states that if we take many random samples from a population, the average of those samples will be normally distributed, even if the original population is not.</p>
+            <p><strong>This means that we can use the normal distribution to make predictions about the population based on our sample data.</strong></p>
+            <p><strong>In summary, the Central Limit Theorem is a powerful tool that helps us make sense of the variability in EV systems and make informed decisions based on sample data.</strong></p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
