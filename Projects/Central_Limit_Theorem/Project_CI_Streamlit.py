@@ -3,6 +3,7 @@ import numpy as np
 from scipy.stats import norm
 import scipy.stats as stats
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Set random seed for reproducibility
 np.random.seed(42)
@@ -19,11 +20,8 @@ alpha = 1 - (confidence_level / 100)
 z_score = norm.ppf(1 - alpha / 2)
 
 
-# Tabs for each section
-tabs = st.tabs(["Confidence Interval", "Confidence Level", "Margin of Error","Calculation based Tasks","Interpretation & Decision Making"])
-
-# --- a. Confidence Interval ---
-with tabs[0]:
+# Expander for each section
+with st.expander("Confidence Interval"):
     st.header("Confidence Interval (CI)")
     st.markdown(f"""
     A **Confidence Interval** is the range where we think the real average falls based on a sample.
@@ -54,8 +52,7 @@ with tabs[0]:
     ax.legend()
     st.pyplot(fig)
 
-# --- b. Confidence Level ---
-with tabs[1]:
+with st.expander("Confidence Level"):
     st.header("Confidence Level (CL)")
     st.markdown("""
     The **Confidence Level** tells you how sure you are that the true value is inside your CI.
@@ -106,8 +103,7 @@ with tabs[1]:
     ax.legend()
     st.pyplot(fig)
 
-# --- c. Margin of Error ---
-with tabs[2]:
+with st.expander("Margin of Error"):
     st.header("Margin of Error (ME)")
     st.markdown("""
     The **Margin of Error** is the amount your estimate might be off — how much you add or subtract from your sample average to get the confidence interval.
@@ -128,9 +124,9 @@ with tabs[2]:
     ax.legend()
     st.pyplot(fig)
 
-with tabs[3]:
+with st.expander("Calculation based Tasks"):
     st.header("Calculation based Tasks")
-    st.markdown("""
+    st.markdown(f"""
                 ### What is a t-distribution?
                 The t-distribution is used when you:
                 - Have a **small sample size** (typically under 30)
@@ -139,7 +135,7 @@ with tabs[3]:
 
                 ---
 
-                This visual calculates a **95% confidence interval** for the **true average EV range** using the t-distribution.
+                This visual calculates a **{confidence_level}% confidence interval** for the **true average EV range** using the t-distribution.
                 """)
 
     # Default EV data
@@ -151,7 +147,7 @@ with tabs[3]:
     mean = np.mean(ev_ranges)
     std_dev = np.std(ev_ranges, ddof=1)
     df = n - 1
-    confidence = 0.95
+    confidence = confidence_level/100
     t_critical = stats.t.ppf((1 + confidence) / 2, df)
     margin_error = t_critical * (std_dev / np.sqrt(n))
     ci_lower = mean - margin_error
@@ -162,7 +158,7 @@ with tabs[3]:
     st.write(f"Standard Deviation (Sample): `{std_dev:.2f} km`")
     st.write(f"t-Critical Value (df={df}): `{t_critical:.3f}`")
     st.write(f"Margin of Error: `{margin_error:.2f} km`")
-    st.success(f"95% Confidence Interval: **({ci_lower:.2f} km, {ci_upper:.2f} km)**")
+    st.success(f"{confidence_level}% Confidence Interval: **({ci_lower:.2f} km, {ci_upper:.2f} km)**")
 
     # Plot
     st.markdown("### Confidence Interval")
@@ -172,11 +168,11 @@ with tabs[3]:
     ax.set_xlim(mean - 3 * margin_error, mean + 3 * margin_error)
     ax.set_yticks([])
     ax.set_xlabel("EV Range (km)")
-    ax.set_title("95% Confidence Interval")
+    ax.set_title(f"{confidence_level}% Confidence Interval")
     ax.legend()
     st.pyplot(fig)
 
-    st.markdown("### 95% Confidence Interval for EV Charging Issues")
+    st.markdown(f"### {confidence_level}% Confidence Interval for EV Charging Issues")
     st.markdown("""
     Estimate the **True proportion** of electric vehicles (EVs) likely to face charging station issues.
     """)
@@ -199,7 +195,7 @@ with tabs[3]:
         st.write(f"Standard Error: `{se:.4f}`")
         st.write(f"Z-critical value (95%): `{z_critical:.2f}`")
         st.write(f"Margin of Error: `{margin_error:.4f}`")
-        st.success(f"95% Confidence Interval: **({lower * 100:.2f}%, {upper * 100:.2f}%)**")
+        st.success(f"{confidence_level}% Confidence Interval: **({lower * 100:.2f}%, {upper * 100:.2f}%)**")
 
         fig, ax = plt.subplots(figsize=(6, 1.5))
         ax.errorbar(p_hat, 0, xerr=margin_error, fmt='o', color='purple', capsize=6)
@@ -207,13 +203,13 @@ with tabs[3]:
         ax.set_xlim(max(0, p_hat - 3 * margin_error), min(1, p_hat + 3 * margin_error))
         ax.set_yticks([])
         ax.set_xlabel("Proportion")
-        ax.set_title("95% Confidence Interval for Charging Issues")
+        ax.set_title(f"{confidence_level}% Confidence Interval for Charging Issues")
         ax.legend()
         st.pyplot(fig)
     else:
         st.warning("Please make sure issue count is less than or equal to total EVs.")
 
-with tabs[4]:
+with st.expander("Interpretation & Decision Making"):
     st.header("Interpretation & Decision Making")
 
     st.markdown(""" **Q1-** An engineer says, “The 95% confidence interval for battery range is (310 km, 325 km), so there’s a 95% chance the true range is in this interval.” Is this statement accurate? If not, rewrite it correctly.""")
@@ -236,7 +232,7 @@ with tabs[4]:
     mean = st.number_input("Sample Mean EV Range (km)", value=310.0)
     std_dev = st.number_input("Sample Standard Deviation (km)", value=12.0)
     n = st.number_input("Sample Size (n)", min_value=2, value=25, step=1)
-    confidence = 0.95
+    confidence = confidence_level/100
 
     # Degrees of freedom
     df = n - 1
@@ -258,17 +254,17 @@ with tabs[4]:
     st.markdown("### Interval Results")
     col1, col2 = st.columns(2)
     with col1:
-        st.success(f"95% Confidence Interval (Mean EV Range):\n**({ci_lower:.2f} km, {ci_upper:.2f} km)**")
+        st.success(f"{confidence_level}% Confidence Interval (Mean EV Range):\n**({ci_lower:.2f} km, {ci_upper:.2f} km)**")
     with col2:
-        st.warning(f"95% Prediction Interval (New EV Range):\n**({pi_lower:.2f} km, {pi_upper:.2f} km)**")
+        st.warning(f"{confidence_level}% Prediction Interval (New EV Range):\n**({pi_lower:.2f} km, {pi_upper:.2f} km)**")
 
     # Plotting
     fig, ax = plt.subplots(figsize=(7, 2.5))
 
     # Confidence Interval
-    ax.errorbar(mean, 0.25, xerr=ci_margin, fmt='o', color='green', capsize=5, label='95% CI (mean)')
+    ax.errorbar(mean, 0.25, xerr=ci_margin, fmt='o', color='green', capsize=5, label=f'{confidence_level}% CI (mean)')
     # Prediction Interval
-    ax.errorbar(mean, -0.25, xerr=pi_margin, fmt='o', color='orange', capsize=5, label='95% PI (new EV)')
+    ax.errorbar(mean, -0.25, xerr=pi_margin, fmt='o', color='orange', capsize=5, label=f'{confidence_level}% PI (new EV)')
 
     # Labels and aesthetics
     ax.axvline(mean, color='blue', linestyle='--', label='Sample Mean')
@@ -278,3 +274,81 @@ with tabs[4]:
     ax.set_title("Confidence Interval vs Prediction Interval")
     ax.legend()
     st.pyplot(fig)
+
+with st.expander("Engineering Application - Compare Two EV Models"):
+    st.header(f"Compare Two EV Models using {confidence_level}% Confidence Intervals")
+
+    # Input parameters
+    mean_a, std_a, n_a = 295, 10, 20
+    mean_b, std_b, n_b = 310, 8, 20
+    df = n_a - 1
+    confidence = confidence_level/100
+
+    # t critical value
+    t_crit = stats.t.ppf((1 + confidence) / 2, df)
+
+    # Calculate CIs
+    margin_a = t_crit * (std_a / np.sqrt(n_a))
+    ci_a = (mean_a - margin_a, mean_a + margin_a)
+
+    margin_b = t_crit * (std_b / np.sqrt(n_b))
+    ci_b = (mean_b - margin_b, mean_b + margin_b)
+
+    # Display CIs
+    st.markdown(f"### Confidence Intervals ({confidence_level}%)")
+    st.write(f"Model A CI: **({ci_a[0]:.2f}, {ci_a[1]:.2f}) km**")
+    st.write(f"Model B CI: **({ci_b[0]:.2f}, {ci_b[1]:.2f}) km**")
+
+    # Conclusion based on overlap
+    if ci_a[1] < ci_b[0] or ci_b[1] < ci_a[0]:
+        st.success("The intervals do NOT overlap — Model B has a significantly higher average range.")
+    else:
+        st.warning("The intervals overlap — there's no strong evidence of a significant difference.")
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(7, 2.5))
+    ax.errorbar(mean_a, 1, xerr=margin_a, fmt='o', capsize=5, color='blue', label='Model A')
+    ax.errorbar(mean_b, 0, xerr=margin_b, fmt='o', capsize=5, color='green', label='Model B')
+    ax.axvline(mean_a, linestyle='--', color='blue', alpha=0.5)
+    ax.axvline(mean_b, linestyle='--', color='green', alpha=0.5)
+    ax.set_yticks([0, 1])
+    ax.set_yticklabels(["Model B", "Model A"])
+    ax.set_xlabel("EV Range (km)")
+    ax.set_title(f"{confidence_level}% Confidence Intervals for Model A & B")
+    ax.legend()
+    st.pyplot(fig)
+
+with st.expander("Reflection"):
+    st.header("Reflection")
+    st.markdown("""How can confidence intervals help improve reliability and performance benchmarks in Electric Vehicle production and deployment?""")
+    st.markdown("""
+                - **Battery Range** : _Shows the expected range most EVs will get—not just the average—so customers know what to expect._
+                - **Charging Time** : _Reveals if charging times vary too much, which might need design improvements._
+                - **Failure Rates** : _Estimates how often problems (like charging issues) might happen in real-world use._
+                - **Quality Control** : _Checks if each batch of EVs is built consistently and meets quality standards._
+                - **Model Comparison** : _Confirms if one EV model truly performs better than another, not just by chance._
+                """)
+
+with st.expander("Summary of Key Statistical Metrics"):
+
+    # Define the summary data for the key statistical concepts
+    data = [
+        {"Metric": "Mean (\u03bc or x\u0304)", "Formula": "x\u0304 = \u03a3x / n", "Description": "Average of all data points in a sample or population.", "EV Example": "Average range of 10 EVs: (285+290+...+288)/10 = 288.8 km"},
+        {"Metric": "Standard Deviation (\u03c3 or s)", "Formula": "s = \u221a[\u03a3(x - x\u0304)² / (n-1)]", "Description": "Measures how spread out the values are from the mean.", "EV Example": "Smaller std. dev = more consistent EV range."},
+        {"Metric": "Variance (\u03c3\u00b2 or s\u00b2)", "Formula": "s\u00b2 = \u03a3(x - x\u0304)² / (n-1)", "Description": "The square of the standard deviation. Shows overall variability.", "EV Example": "Detects how much EV range varies from the average."},
+        {"Metric": "Confidence Interval (CI)", "Formula": "x\u0304 ± z*(\u03c3/\u221an) or x\u0304 ± t*(s/\u221an)", "Description": "Range where the true population mean likely lies.", "EV Example": "95% CI for average EV range: (285 km, 295 km)"},
+        {"Metric": "Margin of Error (ME)", "Formula": "z*(\u03c3/\u221an) or t*(s/\u221an)", "Description": "Amount of uncertainty in the estimate of the mean.", "EV Example": "±5 km around the average range estimate."},
+        {"Metric": "Confidence Level (CL)", "Formula": "Typically 90%, 95%, or 99%", "Description": "Long-run probability that the CI contains the true mean.", "EV Example": "95% CL means 95 out of 100 samples contain the true range."},
+        {"Metric": "t-distribution", "Formula": "t = (x\u0304 - \u03bc) / (s/\u221an)", "Description": "Used for small samples when population std dev is unknown.", "EV Example": "Used to estimate range for new EV models based on few tests."},
+        {"Metric": "z-score", "Formula": "z = (x - \u03bc) / \u03c3", "Description": "Standardized value that shows how far a point is from the mean.", "EV Example": "EV with 340 km range when \u03bc=310, \u03c3=10 → z = 3."},
+        {"Metric": "p-value", "Formula": "Calculated from test statistic (z or t)", "Description": "Probability of getting the result assuming null hypothesis is true.", "EV Example": "Low p (<0.05) = new EV range is significantly different."},
+        {"Metric": "Prediction Interval", "Formula": "x\u0304 ± t*(s\u221a(1 + 1/n))", "Description": "Range where a new individual data point is expected to fall.", "EV Example": "Predict next EV range = 290–330 km, given sample mean and std. dev."}
+    ]
+
+    # Convert to DataFrame
+    df = pd.DataFrame(data)
+    st.header("Summary of Key Statistical Metrics in EV Analysis")
+
+    # Display the DataFrame as a table
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
