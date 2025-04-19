@@ -240,7 +240,7 @@ with tabs[2]:
 
     st.markdown(
         """
-        <div style="border: 2px solid #4CAF50; padding: 15px; border-radius: 10px; background-color: #f9f9f9;">
+        <div style="border: 2px solid #4CAF50; padding: 15px; border-radius: 10px;">
             <p><strong>The Central Limit Theorem (CLT)</strong> helps us understand how these variables behave when we take samples from a larger population. It states that if we take many random samples from a population, the average of those samples will be normally distributed, even if the original population is not.</p>
             <p><strong>This means that we can use the normal distribution to make predictions about the population based on our sample data.</strong></p>
             <p><strong>In summary, the Central Limit Theorem is a powerful tool that helps us make sense of the variability in EV systems and make informed decisions based on sample data.</strong></p>
