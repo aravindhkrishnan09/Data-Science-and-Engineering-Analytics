@@ -5,10 +5,11 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 import pandas as pd
 
+st.set_page_config(page_title="Confidence Interval for EV Charging Costs", layout="wide")
+st.title("Confidence Statistics for Electric Vehicle (EV) Charging Costs")
+
 # Set random seed for reproducibility
 np.random.seed(42)
-
-st.title("Confidence Statistics for Electric Vehicle (EV) Charging Costs")
 
 # Sidebar for user input
 st.sidebar.header("User Input")

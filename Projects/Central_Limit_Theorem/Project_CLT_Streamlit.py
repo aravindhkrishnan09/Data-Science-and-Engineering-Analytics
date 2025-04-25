@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 
+st.set_page_config(page_title="Central Limit Theorem in EV Systems", layout="wide")
 st.title('Central Limit Theorem in EV Systems')
-
 
 # Set random seed for reproducibility
 np.random.seed(42)
