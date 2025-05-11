@@ -80,3 +80,50 @@ st.markdown(f"""
 - If temperature increases faster, degradation rises more quickly.
 - Helps estimate wear rate based on known temperature and usage patterns.
 """)
+
+# --- Effect of Faster Temperature Increase ---
+st.header("Effect of Faster Temperature Increase vs Cycle Count")
+st.markdown("""
+If temperature increases faster than cycle count (i.e., dT/dt > dC/dt), the total degradation rate **dD/dt** increases more rapidly, since the temperature term has a quadratic effect in the degradation function. This means that controlling temperature rise is crucial for minimizing battery degradation.
+
+Below, we compare two scenarios:
+- **Case 1:** dT/dt = 2, dC/dt = 5 (original)
+- **Case 2:** dT/dt = 5, dC/dt = 2 (temperature increases faster)
+""")
+
+# Calculate dD/dt for both cases over time
+time_vals = np.linspace(0, 10, 100)
+temp_vals = 2 * time_vals
+cycles_vals = 5 * time_vals
+partial_T_vals = 0.02 * temp_vals
+partial_C = 0.05
+
+dD_dt_case1 = partial_T_vals * 2 + partial_C * 5  # original
+dD_dt_case2 = partial_T_vals * 5 + partial_C * 2  # temp increases faster
+
+# Calculate and display Total Rate of Degradation at t for both cases
+partial_T_case1 = 0.02 * (2 * t)
+dD_dt_case1_t = partial_T_case1 * 2 + partial_C * 5
+partial_T_case2 = 0.02 * (2 * t)
+dD_dt_case2_t = partial_T_case2 * 5 + partial_C * 2
+
+st.markdown(f"""
+**Total Rate of Degradation at t = {t}:**
+- Case 1 (dT/dt=2, dC/dt=5): dD/dt = {dD_dt_case1_t:.3f} units/hour
+- Case 2 (dT/dt=5, dC/dt=2): dD/dt = {dD_dt_case2_t:.3f} units/hour
+""")
+
+fig2, ax2 = plt.subplots()
+ax2.plot(time_vals, dD_dt_case1, label="dT/dt=2, dC/dt=5", color="blue")
+ax2.plot(time_vals, dD_dt_case2, label="dT/dt=5, dC/dt=2", color="red", linestyle="--")
+ax2.set_title("Rate of Degradation (dD/dt) vs Time")
+ax2.set_xlabel("Time (hours)")
+ax2.set_ylabel("dD/dt (units/hour)")
+ax2.legend()
+st.pyplot(fig2)
+
+st.markdown("""
+**Observation:**
+- When temperature increases faster than cycle count, the degradation rate (red dashed line) is significantly higher, especially as time increases.
+- This highlights the importance of temperature management in battery longevity.
+""")
