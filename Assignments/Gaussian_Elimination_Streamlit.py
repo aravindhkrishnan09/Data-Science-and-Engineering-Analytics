@@ -3,6 +3,8 @@ import numpy as np
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
+st.title("Gaussian Elimination Application (3*3 System)")
+
 # Gaussian Elimination: Use Case and Onion Peel Analogy
 st.markdown("""
 ## What is Gaussian Elimination?
@@ -114,7 +116,6 @@ def gaussian_elimination(A, b):
     return steps
 
 # Streamlit UI
-st.title("Gaussian Elimination Application (3*3 System)")
 st.write("This app demonstrates the Gaussian Elimination method for solving systems of linear equations.")
 
 # Add explanation of basic rules and assumptions
