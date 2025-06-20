@@ -13,9 +13,58 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="VED ML Data Loading & Preprocessing", layout="centered", initial_sidebar_state="expanded")
 st.title('VED ML Data Modelling')
 
+st.markdown("""
+    <style>
+        /* Custom styling for tab container with horizontal scroll */
+        .stTabs [role="tablist"] {
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            display: flex;
+            gap: 4px;
+        }
+
+        /* Webkit scrollbar styling for better visual appearance */
+        .stTabs [role="tablist"]::-webkit-scrollbar {
+            height: 8px;
+            background-color: #f0f0f0;
+        }
+
+        .stTabs [role="tablist"]::-webkit-scrollbar-track {
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .stTabs [role="tablist"]::-webkit-scrollbar-thumb {
+            background-color: #888;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        .stTabs [role="tablist"]::-webkit-scrollbar-thumb:hover {
+            background-color: #555;
+        }
+
+        /* Individual tab styling for better spacing and appearance */
+        .stTabs [role="tab"] {
+            flex-shrink: 0;
+            padding: 12px 20px;
+            margin-right: 2px;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.3s ease;
+        }
+
+        /* Hover effect for tabs */
+        .stTabs [role="tab"]:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 tabs = st.tabs(["Data Loading and Preprocessing",
                  "Data Visualization - Sample Plots",
-                 "Exploratory Data Analysis"])
+                 "Exploratory Data Analysis",
+                 "ICE, HEV, EV, and PHEV Analysis"])
 
 with tabs[0]:
     st.header("Data Loading and Preprocessing")
@@ -72,7 +121,7 @@ with tabs[0]:
         df_ICE_HEV['Drive Wheels'] = df_ICE_HEV['Drive Wheels'].astype('object')
         df_PHEV_EV.rename(columns={'EngineType': 'Vehicle Type'}, inplace=True)
         df_static = pd.concat([df_ICE_HEV, df_PHEV_EV], ignore_index=True)
-        
+
         st.write("#### Data Cleaning Summary")
         col1, col2 = st.columns(2)
         with col1:
@@ -102,7 +151,7 @@ with tabs[0]:
     
     with st.spinner("Joining datasets..."):
         df = df_dynamic_sample.merge(df_static, on='VehId', how='left')
-        
+
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Records After Join", f"{len(df):,}")
@@ -134,75 +183,85 @@ with tabs[0]:
             elif 20 <= value < 30: return 'Warm'
             elif value >= 30: return 'Hot'
             else: return np.nan
-        
-        df['OAT_Category'] = df['OAT[DegC]'].apply(categorize_oat)
-        
-        reference_date = datetime(2017, 11, 1)
-        df['DateTime'] = pd.to_timedelta(df['DayNum'] - 1, unit='D') + reference_date
-        df['Date'] = df['DateTime'].dt.date
-        df['Time'] = df['DateTime'].dt.time
-        
-        df['Distance[km]'] = df['Vehicle Speed[km/h]'] * (df['Timestamp(ms)'] / 3600000)
 
-        df['HV Battery Power[Watts]'] = df['HV Battery Voltage[V]'] * df['HV Battery Current[A]']
+    df['OAT_Category'] = df['OAT[DegC]'].apply(categorize_oat)
+
+    reference_date = datetime(2017, 11, 1)
+    df['DateTime'] = pd.to_timedelta(df['DayNum'] - 1, unit='D') + reference_date
+    df['Date'] = df['DateTime'].dt.date
+    df['Time'] = df['DateTime'].dt.time
+
+    df['Distance[km]'] = df['Vehicle Speed[km/h]'] * (df['Timestamp(ms)'] / 3600000)
+
+    df['HV Battery Power[Watts]'] = df['HV Battery Voltage[V]'] * df['HV Battery Current[A]']
+
+    # Constants
+    AFR = 14.7  # typical AFR for gasoline engines
+    ρ_air = 1.184  # air density in kg/m³
+
+    def compute_fcr(df):
+    # Parse displacement in liters from 'Engine Configuration & Displacement' if format like "I4 2.0L"
+        def extract_displacement(val):
+            try:
+                return float(val.split()[-1].replace("L", ""))
+            except:
+                return np.nan
+
+        df['Displacement_L'] = df['Engine Configuration & Displacement'].apply(extract_displacement)
+
+        # Compute correction factor
+        df['correction'] = (1 + df['Short Term Fuel Trim Bank 1[%]']/100 + df['Long Term Fuel Trim Bank 1[%]']/100) / AFR
+
+        # Step 1: Use FuelRate if available
+        df['FCR'] = np.where(
+            ~df['Fuel Rate[L/hr]'].isna(),
+            df['Fuel Rate[L/hr]'],
+            np.nan
+        )
+
+        # Step 2: Else if MAF is available
+        maf_condition = df['FCR'].isna() & ~df['MAF[g/sec]'].isna()
+        df.loc[maf_condition, 'FCR'] = df.loc[maf_condition, 'MAF[g/sec]'] * df.loc[maf_condition, 'correction']
+
+        # Step 3: Else if AbsLoad and RPMeng are available
+        derived_condition = df['FCR'].isna() & ~df['Absolute Load[%]'].isna() & ~df['Engine RPM[RPM]'].isna() & ~df['Displacement_L'].isna()
+        maf_derived = (df['Absolute Load[%]'] / 100) * ρ_air * df['Displacement_L'] * df['Engine RPM[RPM]'] / 120
+        df.loc[derived_condition, 'FCR'] = maf_derived[derived_condition] * df.loc[derived_condition, 'correction']
+
+        return df
+
+    df = compute_fcr(df)
+
+    st.write("#### Transformation Results")
         
-        def compute_fcr(df):
-            def extract_displacement(val):
-                try:
-                    return float(val.split()[-1].replace("L", ""))
-                except:
-                    return np.nan
-                    
-            df['Displacement_L'] = df['Engine Configuration & Displacement'].apply(extract_displacement)
-            df['correction'] = (1 + df['Short Term Fuel Trim Bank 1[%]']/100 + df['Long Term Fuel Trim Bank 1[%]']/100) / 14.7
+    st.write("**Distribution of Outside Air Temperature (OAT) Categories:**")
+    oat_dist = df['OAT_Category'].value_counts()
+    st.dataframe(oat_dist.reset_index().rename(columns={'index': 'OAT Category', 'OAT_Category': 'Count'}), use_container_width=True, hide_index=True)
+        
+    st.write("**Fuel Consumption Rate (FCR) Statistical Summary:**")
+    fcr_stats = df['FCR'].describe()
+    st.dataframe(fcr_stats.reset_index().rename(columns={'index': 'Statistic', 'FCR': 'Value'}), use_container_width=True, hide_index=True)    
             
-            df['FCR'] = np.where(
-                ~df['Fuel Rate[L/hr]'].isna(),
-                df['Fuel Rate[L/hr]'],
-                np.nan
+    st.write("**HV Battery Power[Watts]:**")
+    st.markdown(
+                """
+                The column **'HV Battery Power[Watts]'** is calculated as the product of **'HV Battery Voltage[V]'** and **'HV Battery Current[A]'** for each record in the dataset.
+                This represents the instantaneous electrical power output (in Watts) of the high-voltage battery at each timestamp.
+                \n
+                **Formula:**  
+                HV Battery Power [Watts] = HV Battery Voltage [V] × HV Battery Current [A]
+                """
             )
             
-            maf_condition = df['FCR'].isna() & ~df['MAF[g/sec]'].isna()
-            df.loc[maf_condition, 'FCR'] = df.loc[maf_condition, 'MAF[g/sec]'] * df.loc[maf_condition, 'correction']
+    st.write("**Final Dataset Overview:**")
+    st.dataframe(df.head(10), use_container_width=True, hide_index=True)
             
-            derived_condition = df['FCR'].isna() & ~df['Absolute Load[%]'].isna() & ~df['Engine RPM[RPM]'].isna() & ~df['Displacement_L'].isna()
-            maf_derived = (df['Absolute Load[%]'] / 100) * 1.184 * df['Displacement_L'] * df['Engine RPM[RPM]'] / 120
-            df.loc[derived_condition, 'FCR'] = maf_derived[derived_condition] * df.loc[derived_condition, 'correction']
-            return df
-
-        df = compute_fcr(df)
-        
-        st.write("#### Transformation Results")
-        
-        st.write("**Distribution of Outside Air Temperature (OAT) Categories:**")
-        oat_dist = df['OAT_Category'].value_counts()
-        st.dataframe(oat_dist.reset_index().rename(columns={'index': 'OAT Category', 'OAT_Category': 'Count'}), use_container_width=True, hide_index=True)
-        
-        st.write("**Fuel Consumption Rate (FCR) Statistical Summary:**")
-        fcr_stats = df['FCR'].describe()
-        st.dataframe(fcr_stats.reset_index().rename(columns={'index': 'Statistic', 'FCR': 'Value'}), use_container_width=True, hide_index=True)    
-        
-        st.write("**HV Battery Power[Watts]:**")
-        st.markdown(
-            """
-            The column **'HV Battery Power[Watts]'** is calculated as the product of **'HV Battery Voltage[V]'** and **'HV Battery Current[A]'** for each record in the dataset.
-            This represents the instantaneous electrical power output (in Watts) of the high-voltage battery at each timestamp.
-            \n
-            **Formula:**  
-            HV Battery Power [Watts] = HV Battery Voltage [V] × HV Battery Current [A]
-            """
-        )
-        st.dataframe(df[['HV Battery Voltage[V]', 'HV Battery Current[A]', 'HV Battery Power[Watts]']].head(), use_container_width=True, hide_index=True)
-        
-        st.write("**Final Dataset Overview:**")
-        st.dataframe(df.head(10), use_container_width=True, hide_index=True)
-        
-        buffer = io.StringIO()
-        df.info(buf=buffer)
-        info_str = buffer.getvalue()
-        with st.container():
-            st.text("Final Cleaned Data Info:")
-            st.text(info_str)
+    buffer = io.StringIO()
+    df.info(buf=buffer)
+    info_str = buffer.getvalue()
+    with st.container():
+        st.text("Final Cleaned Data Info:")
+        st.text(info_str)
 
 
 with tabs[1]:
@@ -480,6 +539,7 @@ with tabs[2]:
     The table above provides a spatial summary of energy consumption and operational metrics by location and vehicle type, supporting the identification of geographic trends in vehicle performance and efficiency.
     """)
 
+with tabs[3]:
     st.markdown("""
     ### ICE, HEV, EV, and PHEV Analysis: Distance vs FCR and HV Battery Power
 
@@ -487,11 +547,14 @@ with tabs[2]:
     - **ICE & HEV**: Internal Combustion Engine and Hybrid Electric Vehicles
     - **EV & PHEV**: Electric Vehicles and Plug-in Hybrid Electric Vehicles
 
-    The data is grouped by trip and vehicle type, and displays the top records for each group.
+    The data is grouped by trip, time and vehicle type, and displays the top records for each group.
     """)
 
     df_EC_trip_ICE_HEV = df_EC_trip[df_EC_trip['Vehicle Type'].isin(['ICE', 'HEV'])]
     df_EC_trip_EV_PHEV = df_EC_trip[df_EC_trip['Vehicle Type'].isin(['EV', 'PHEV'])]
+
+    df_EC_time_ICE_HEV = df_EC_time[df_EC_time['Vehicle Type'].isin(['ICE','HEV'])]
+    df_EC_time_EV_PHEV = df_EC_time[df_EC_time['Vehicle Type'].isin(['EV','PHEV'])]
 
     st.subheader("ICE & HEV Vehicles")
     st.dataframe(df_EC_trip_ICE_HEV.head(10), use_container_width=True)
@@ -504,3 +567,145 @@ with tabs[2]:
     - The tables above provide a summary of distance, fuel consumption rate (FCR), and HV battery power for ICE, HEV, EV, and PHEV vehicle types.
     - This allows for a direct comparison of energy consumption and operational characteristics across different powertrain technologies.
     """)
+
+    # Description:
+    st.markdown("""
+    #### Energy Consumption Comparison by Vehicle Type over Trip
+
+    The following scatter plots visualize the relationship between trip distance and energy consumption metrics for different vehicle types:
+    - **Left Plot:** Distance vs Fuel Consumption Rate (FCR) for Internal Combustion Engine (ICE) and Hybrid Electric Vehicles (HEV).
+    - **Right Plot:** Distance vs HV Battery Power for Electric Vehicles (EV) and Plug-in Hybrid Electric Vehicles (PHEV).
+
+    These visualizations help compare operational efficiency and energy usage patterns across various powertrain technologies.
+    """)
+
+    # Create a 1x2 subplot for the two comparisons
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5), sharex=False)
+
+    # Subplot 1: ICE vs HEV (Distance vs FCR)
+    ax1 = axes[0]
+    ax1.scatter(
+        df_EC_trip_ICE_HEV[df_EC_trip_ICE_HEV['Vehicle Type'] == 'ICE']['Distance[km]'],
+        df_EC_trip_ICE_HEV[df_EC_trip_ICE_HEV['Vehicle Type'] == 'ICE']['FCR'],
+        alpha=0.5,
+        c='blue',
+        label='ICE'
+    )
+    ax1.scatter(
+        df_EC_trip_ICE_HEV[df_EC_trip_ICE_HEV['Vehicle Type'] == 'HEV']['Distance[km]'],
+        df_EC_trip_ICE_HEV[df_EC_trip_ICE_HEV['Vehicle Type'] == 'HEV']['FCR'],
+        alpha=0.5,
+        c='green',
+        label='HEV'
+    )
+    ax1.set_xlabel('Distance (km)')
+    ax1.set_ylabel('Fuel Consumption Rate (L/hr)')
+    ax1.set_title('ICE vs HEV')
+    ax1.legend()
+    ax1.grid(True)
+
+    # Subplot 2: EV vs PHEV (Distance vs HV Battery Power)
+    ax2 = axes[1]
+    ax2.scatter(
+        df_EC_trip_EV_PHEV[df_EC_trip_EV_PHEV['Vehicle Type'] == 'PHEV']['Distance[km]'],
+        df_EC_trip_EV_PHEV[df_EC_trip_EV_PHEV['Vehicle Type'] == 'PHEV']['HV Battery Power[Watts]'],
+        alpha=0.5,
+        c='red',
+        label='PHEV'
+    )
+    ax2.scatter(
+        df_EC_trip_EV_PHEV[df_EC_trip_EV_PHEV['Vehicle Type'] == 'EV']['Distance[km]'],
+        df_EC_trip_EV_PHEV[df_EC_trip_EV_PHEV['Vehicle Type'] == 'EV']['HV Battery Power[Watts]'],
+        alpha=0.5,
+        c='orange',
+        label='EV'
+    )
+    ax2.set_xlabel('Distance (km)')
+    ax2.set_ylabel('HV Battery Power (Watts)')
+    ax2.set_title('EV vs PHEV')
+    ax2.legend()
+    ax2.grid(True)
+
+    # Shared Title and Layout
+    fig.suptitle('Energy Consumption Comparison by Vehicle Type over Trip', fontsize=14, fontweight='bold')
+    plt.tight_layout(rect=[0, 0, 1, 1])  # Leave space for suptitle
+
+    # Display the figure in Streamlit
+    st.pyplot(fig)
+
+    st.markdown("""
+    - **ICE vs HEV Plot (Left):** Shows a negative correlation between distance and fuel consumption rate, where fuel consumption tends to be higher (1.5-2.0 L/hr) at shorter distances (0-10 km) and decreases (below 1.0 L/hr) as trip distance increases. ICE vehicles (blue) generally show higher fuel consumption compared to HEV vehicles (green) across all distances
+    - **EV vs PHEV Plot (Right):** Shows the battery power usage pattern, where PHEV vehicles (red) exhibit both positive and negative power values (-20000 to +5000 Watts) indicating both battery discharge and regenerative charging, while EV vehicles (yellow) appear to have a more concentrated power usage pattern. The spread of power values is most diverse in the 0-10 km range and becomes more sparse at longer distances.
+    - These plots enable a visual comparison of energy consumption patterns across different vehicle technologies.
+    """)
+
+    st.markdown("""
+    #### Energy Consumption Comparison by Vehicle Type over Time
+
+    The following scatter plots visualize the relationship between trip distance and energy consumption metrics for different vehicle types over time:
+    - **Left Plot:** Distance vs Fuel Consumption Rate (FCR) for Internal Combustion Engine (ICE) and Hybrid Electric Vehicles (HEV).
+    - **Right Plot:** Distance vs HV Battery Power for Electric Vehicles (EV) and Plug-in Hybrid Electric Vehicles (PHEV).
+
+    These visualizations help compare operational efficiency and energy usage patterns across various powertrain technologies over time periods.
+    """)
+
+    # Create a 1x2 subplot for the two comparisons
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5), sharex=False)
+
+    # Subplot 1: ICE vs HEV (Distance vs FCR)
+    ax1 = axes[0]
+    ax1.scatter(
+        df_EC_time_ICE_HEV[df_EC_time_ICE_HEV['Vehicle Type'] == 'ICE']['Distance[km]'],
+        df_EC_time_ICE_HEV[df_EC_time_ICE_HEV['Vehicle Type'] == 'ICE']['FCR'],
+        alpha=0.5,
+        c='blue',
+        label='ICE'
+    )
+    ax1.scatter(
+        df_EC_time_ICE_HEV[df_EC_time_ICE_HEV['Vehicle Type'] == 'HEV']['Distance[km]'],
+        df_EC_time_ICE_HEV[df_EC_time_ICE_HEV['Vehicle Type'] == 'HEV']['FCR'],
+        alpha=0.5,
+        c='green',
+        label='HEV'
+    )
+    ax1.set_xlabel('Distance (km)')
+    ax1.set_ylabel('Fuel Consumption Rate (L/hr)')
+    ax1.set_title('ICE vs HEV')
+    ax1.legend()
+    ax1.grid(True)
+
+    # Subplot 2: EV vs PHEV (Distance vs HV Battery Power)
+    ax2 = axes[1]
+    ax2.scatter(
+        df_EC_time_EV_PHEV[df_EC_time_EV_PHEV['Vehicle Type'] == 'PHEV']['Distance[km]'],
+        df_EC_time_EV_PHEV[df_EC_time_EV_PHEV['Vehicle Type'] == 'PHEV']['HV Battery Power[Watts]'],
+        alpha=0.5,
+        c='red',
+        label='PHEV'
+    )
+    ax2.scatter(
+        df_EC_time_EV_PHEV[df_EC_time_EV_PHEV['Vehicle Type'] == 'EV']['Distance[km]'],
+        df_EC_time_EV_PHEV[df_EC_time_EV_PHEV['Vehicle Type'] == 'EV']['HV Battery Power[Watts]'],
+        alpha=0.5,
+        c='orange',
+        label='EV'
+    )
+    ax2.set_xlabel('Distance (km)')
+    ax2.set_ylabel('HV Battery Power (Watts)')
+    ax2.set_title('EV vs PHEV')
+    ax2.legend()
+    ax2.grid(True)
+
+    # Shared Title and Layout
+    fig.suptitle('Energy Consumption Comparison by Vehicle Type over Time', fontsize=14, fontweight='bold')
+    plt.tight_layout(rect=[0, 0, 1, 1])  # Leave space for suptitle
+
+    # Display the figure in Streamlit
+    st.pyplot(fig)
+
+    st.markdown("""
+    - **ICE vs HEV Plot (Left):** Shows that ICE vehicles (blue) have higher fuel consumption rates (0.8-0.9 L/hr) compared to HEV vehicles (green) (0.5-0.6 L/hr) over time. The data points are concentrated around 4 km distance, with a few outliers extending up to 16 km, showing HEV's consistently better fuel efficiency across different time periods.
+    - **EV vs PHEV Plot (Right):** Displays battery power consumption between -2000 to -14000 Watts for both vehicle types, with PHEV (red) showing slightly more scattered power usage compared to EV (yellow). The majority of data points fall within 0-7.5 km range, with occasional trips extending to 17.5 km, suggesting these represent typical daily driving patterns over time.
+    - These plots enable a visual comparison of energy consumption patterns across different vehicle technologies and their temporal variations.
+    """)
+
