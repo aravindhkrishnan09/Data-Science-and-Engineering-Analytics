@@ -97,9 +97,13 @@ with tabs[0]:
 
 
     with st.spinner("Loading data..."):
-        df_ICE_HEV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_ICE&HEV.xlsx")
-        df_PHEV_EV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_PHEV&EV.xlsx")
-        df_dynamic_sample = load_csv_files_from_directory("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_DynamicData_Part1")
+        #df_ICE_HEV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_ICE&HEV.xlsx")
+        #df_PHEV_EV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_PHEV&EV.xlsx")
+
+        df_ICE_HEV = load_data_excel("Projects/Main_Project_ML/VED_Static_Data_ICE&HEV.xlsx")
+        df_PHEV_EV = load_data_excel("Projects/Main_Project_ML/VED_Static_Data_PHEV&EV.xlsx")
+
+        df_dynamic_sample = load_csv_files_from_directory("Projects/Main_Project_ML/Part1_Dynamic_Data")
         
         col1, col2, col3 = st.columns(3)
         with col1:
