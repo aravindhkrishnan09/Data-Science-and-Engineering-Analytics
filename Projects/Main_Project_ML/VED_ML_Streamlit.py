@@ -9,6 +9,10 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt 
 import seaborn as sns
 warnings.filterwarnings('ignore')
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
+import random
+from io import StringIO
 
 st.set_page_config(page_title="VED ML Data Loading & Preprocessing", layout="centered", initial_sidebar_state="expanded")
 st.title('VED ML Data Modelling')
@@ -78,33 +82,93 @@ with tabs[0]:
     )
     
     @st.cache_data
-    def load_data_excel(file_path):
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"The file {file_path} does not exist.")
-        return pd.read_excel(file_path)
+    #def load_data_excel(file_path):
+    #    if not os.path.exists(file_path):
+    #        raise FileNotFoundError(f"The file {file_path} does not exist.")
+    #    return pd.read_excel(file_path)
+    
+    def authenticate_drive():
+        """Authenticate and return a GoogleDrive instance."""
+        gauth = GoogleAuth()
+        gauth.LocalWebserverAuth()  # Opens browser for login
+        return GoogleDrive(gauth)
+    
+    def read_excel_from_drive(_drive, file_id):
+        """
+        Reads an Excel file from Google Drive using its file_id.
+        
+        Args:
+            drive: Authenticated GoogleDrive instance
+            file_id: File ID of the Excel file in Google Drive
+            
+        Returns:
+            DataFrame containing the Excel data
+        """
+        file = drive.CreateFile({'id': file_id})
+        file.GetContentFile('temp_excel_file.xlsx')
+        df = pd.read_excel('temp_excel_file.xlsx')
+        return df
 
     @st.cache_data
-    def load_csv_files_from_directory(directory):
-        all_files = [f for f in os.listdir(directory) if f.endswith('.csv')]
-        np.random.seed(42)
-        sampled_files = np.random.choice(all_files, size=int(len(all_files) * 0.5), replace=False)
-        df_list = []
-        for file in sampled_files:
-            file_path = os.path.join(directory, file)
-            df = pd.read_csv(file_path)
-            df_list.append(df)
-        return pd.concat(df_list, ignore_index=True)
+    #def load_csv_files_from_directory(directory):
+    #    all_files = [f for f in os.listdir(directory) if f.endswith('.csv')]
+    #    np.random.seed(42)
+    #    sampled_files = np.random.choice(all_files, size=int(len(all_files) * 0.5), replace=False)
+    #    df_list = []
+    #    for file in sampled_files:
+    #        file_path = os.path.join(directory, file)
+    #        df = pd.read_csv(file_path)
+    #        df_list.append(df)
+    #    return pd.concat(df_list, ignore_index=True)
 
+    def read_and_concat_random_csvs_from_drive_folder(_drive, folder_id, sample_frac=0.5):
+        """
+        Reads a random fraction of CSV files directly from a Google Drive folder 
+        and concatenates them into a single DataFrame.
+        
+        Args:
+            drive: Authenticated GoogleDrive instance
+            folder_id: Folder ID in Google Drive
+            sample_frac: Fraction of CSV files to read (default is 0.5)
+            
+        Returns:
+            A single pandas DataFrame combining all sampled CSV files
+        """
+        file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
+
+        csv_files = [file for file in file_list if file['title'].endswith('.csv')]
+
+        if not csv_files:
+            return pd.DataFrame()  # Return empty DataFrame if no CSVs found
+
+        sample_size = max(1, int(len(csv_files) * sample_frac))
+        sampled_files = random.sample(csv_files, sample_size)
+
+        dataframes = []
+        for file in sampled_files:
+            file_content = file.GetContentString()
+            df = pd.read_csv(StringIO(file_content))
+            df['source_file'] = file['title']  # Optional: add filename for tracking
+            dataframes.append(df)
+
+        combined_df = pd.concat(dataframes, ignore_index=True)
+        return combined_df
 
     with st.spinner("Loading data..."):
         #df_ICE_HEV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_ICE&HEV.xlsx")
         #df_PHEV_EV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_PHEV&EV.xlsx")
-
-        df_ICE_HEV = load_data_excel("Projects/Main_Project_ML/VED_Static_Data_ICE&HEV.xlsx")
-        df_PHEV_EV = load_data_excel("Projects/Main_Project_ML/VED_Static_Data_PHEV&EV.xlsx")
-
-        df_dynamic_sample = load_csv_files_from_directory("Projects/Main_Project_ML/Part1_Dynamic_Data")
         
+        #df_dynamic_sample = load_csv_files_from_directory("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_DynamicData_Part1")
+        
+        drive = authenticate_drive()
+        ICE_HEV = '1nIVzW4czIBAOczy9DExM3VEVyYGBXNJe'      # Replace with your Excel file ID
+        PHEV_EV = '1L-rPZ-OrASQDw4m-onNPZFSTNAkbEe8H'      # Replace with your Excel file ID
+        part1 = '13K9WanXU7lOd-nWzztKoCF4kH7LC5789'
+
+        df_ICE_HEV = read_excel_from_drive(drive, ICE_HEV)
+        df_PHEV_EV = read_excel_from_drive(drive, PHEV_EV)
+        df_dynamic_sample = read_and_concat_random_csvs_from_drive_folder(drive, part1)
+
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("ICE & HEV Records", f"{len(df_ICE_HEV):,}")
