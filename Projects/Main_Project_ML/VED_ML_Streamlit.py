@@ -6,13 +6,14 @@ import io
 import warnings
 import shap
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt 
-import seaborn as sns
 warnings.filterwarnings('ignore')
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+import os
+import boto3
+from io import BytesIO
 import random
 from io import StringIO
+from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="VED ML Data Loading & Preprocessing", layout="centered", initial_sidebar_state="expanded")
 st.title('VED ML Data Modelling')
@@ -81,32 +82,41 @@ with tabs[0]:
         """
     )
     
+    # Load environment variables only if running locally
+    if not st.secrets:  # st.secrets is empty in local
+        load_dotenv()
+
+    # Use st.secrets if on Streamlit Cloud, else use os.getenv
+    AWS_ACCESS_KEY_ID = st.secrets.get("AWS_ACCESS_KEY_ID", os.getenv("AWS_ACCESS_KEY_ID"))
+    AWS_SECRET_ACCESS_KEY = st.secrets.get("AWS_SECRET_ACCESS_KEY", os.getenv("AWS_SECRET_ACCESS_KEY"))
+    AWS_DEFAULT_REGION = st.secrets.get("AWS_DEFAULT_REGION", os.getenv("AWS_DEFAULT_REGION"))
+
+    s3 = boto3.client("s3",
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_DEFAULT_REGION
+    )
+
     @st.cache_data
     #def load_data_excel(file_path):
     #    if not os.path.exists(file_path):
     #        raise FileNotFoundError(f"The file {file_path} does not exist.")
     #    return pd.read_excel(file_path)
-    
-    def authenticate_drive():
-        """Authenticate and return a GoogleDrive instance."""
-        gauth = GoogleAuth()
-        gauth.LocalWebserverAuth()  # Opens browser for login
-        return GoogleDrive(gauth)
-    
-    def read_excel_from_drive(_drive, file_id):
+
+    def read_excel_from_s3(bucket_name, object_key):
         """
-        Reads an Excel file from Google Drive using its file_id.
-        
+        Reads an Excel file from an AWS S3 bucket using the global s3 client.
+
         Args:
-            drive: Authenticated GoogleDrive instance
-            file_id: File ID of the Excel file in Google Drive
-            
+            bucket_name: Name of the S3 bucket.
+            object_key: Key (path) to the Excel file in the S3 bucket.
+
         Returns:
-            DataFrame containing the Excel data
+            DataFrame containing the Excel data.
         """
-        file = drive.CreateFile({'id': file_id})
-        file.GetContentFile('temp_excel_file.xlsx')
-        df = pd.read_excel('temp_excel_file.xlsx')
+        response = s3.get_object(Bucket=bucket_name, Key=object_key)
+        file_content = response['Body'].read()
+        df = pd.read_excel(BytesIO(file_content))
         return df
 
     @st.cache_data
@@ -121,22 +131,32 @@ with tabs[0]:
     #        df_list.append(df)
     #    return pd.concat(df_list, ignore_index=True)
 
-    def read_and_concat_random_csvs_from_drive_folder(_drive, folder_id, sample_frac=0.5):
+    def read_and_concat_random_csvs_from_s3(bucket_name, folder_key, sample_frac=0.5):
         """
-        Reads a random fraction of CSV files directly from a Google Drive folder 
+        Reads a random fraction of CSV files directly from an AWS S3 bucket folder 
         and concatenates them into a single DataFrame.
-        
+
         Args:
-            drive: Authenticated GoogleDrive instance
-            folder_id: Folder ID in Google Drive
+            bucket_name: Name of the S3 bucket
+            folder_key: S3 folder key (prefix) where CSV files are stored
             sample_frac: Fraction of CSV files to read (default is 0.5)
-            
+
         Returns:
             A single pandas DataFrame combining all sampled CSV files
         """
-        file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
+        # Assume s3 variable is a boto3 S3 client or resource, already authenticated
+        # Example: s3 = boto3.client('s3') or s3 = boto3.resource('s3')
+        # Here, we use s3 as a boto3 client
+        global s3  # s3 should be defined elsewhere in the notebook/environment
+        random.seed(42)
 
-        csv_files = [file for file in file_list if file['title'].endswith('.csv')]
+        # List all objects in the specified S3 folder
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=folder_key)
+        if 'Contents' not in response:
+            return pd.DataFrame()  # Return empty DataFrame if no files found
+
+        # Filter for CSV files
+        csv_files = [obj['Key'] for obj in response['Contents'] if obj['Key'].endswith('.csv')]
 
         if not csv_files:
             return pd.DataFrame()  # Return empty DataFrame if no CSVs found
@@ -145,10 +165,11 @@ with tabs[0]:
         sampled_files = random.sample(csv_files, sample_size)
 
         dataframes = []
-        for file in sampled_files:
-            file_content = file.GetContentString()
+        for key in sampled_files:
+            obj = s3.get_object(Bucket=bucket_name, Key=key)
+            file_content = obj['Body'].read().decode('utf-8')
             df = pd.read_csv(StringIO(file_content))
-            df['source_file'] = file['title']  # Optional: add filename for tracking
+            df['source_file'] = key  # Optional: add filename for tracking
             dataframes.append(df)
 
         combined_df = pd.concat(dataframes, ignore_index=True)
@@ -160,14 +181,14 @@ with tabs[0]:
         
         #df_dynamic_sample = load_csv_files_from_directory("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_DynamicData_Part1")
         
-        drive = authenticate_drive()
-        ICE_HEV = '1nIVzW4czIBAOczy9DExM3VEVyYGBXNJe'      # Replace with your Excel file ID
-        PHEV_EV = '1L-rPZ-OrASQDw4m-onNPZFSTNAkbEe8H'      # Replace with your Excel file ID
-        part1 = '13K9WanXU7lOd-nWzztKoCF4kH7LC5789'
+        bucket_name = 's3aravindh973515031797'
+        ICE_HEV = 'DIYguru ML Source Data/VED_Static_Data_ICE&HEV.xlsx'
+        PHEV_EV = 'DIYguru ML Source Data/VED_Static_Data_PHEV&EV.xlsx'
+        part1 = 'DIYguru ML Source Data/VED_DynamicData_Part1/'
 
-        df_ICE_HEV = read_excel_from_drive(drive, ICE_HEV)
-        df_PHEV_EV = read_excel_from_drive(drive, PHEV_EV)
-        df_dynamic_sample = read_and_concat_random_csvs_from_drive_folder(drive, part1)
+        df_ICE_HEV = read_excel_from_s3(bucket_name, ICE_HEV)
+        df_PHEV_EV = read_excel_from_s3(bucket_name, PHEV_EV)
+        df_dynamic_sample = read_and_concat_random_csvs_from_s3(bucket_name, part1, sample_frac=0.5)
 
         col1, col2, col3 = st.columns(3)
         with col1:
