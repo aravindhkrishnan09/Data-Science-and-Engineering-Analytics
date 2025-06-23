@@ -98,97 +98,33 @@ with tabs[0]:
     )
 
     @st.cache_data
-    #def load_data_excel(file_path):
-    #    if not os.path.exists(file_path):
-    #        raise FileNotFoundError(f"The file {file_path} does not exist.")
-    #    return pd.read_excel(file_path)
-
-    def read_excel_from_s3(bucket_name, object_key):
+    def read_parquet_from_s3(bucket_name, object_key):
         """
-        Reads an Excel file from an AWS S3 bucket using the global s3 client.
+        Reads a Parquet file from an AWS S3 bucket using the global s3 client.
 
         Args:
             bucket_name: Name of the S3 bucket.
-            object_key: Key (path) to the Excel file in the S3 bucket.
+            object_key: Key (path) to the Parquet file in the S3 bucket.
 
         Returns:
-            DataFrame containing the Excel data.
+            DataFrame containing the Parquet data.
         """
         response = s3.get_object(Bucket=bucket_name, Key=object_key)
         file_content = response['Body'].read()
-        df = pd.read_excel(BytesIO(file_content))
+        df = pd.read_parquet(BytesIO(file_content))
         return df
 
-    @st.cache_data
-    #def load_csv_files_from_directory(directory):
-    #    all_files = [f for f in os.listdir(directory) if f.endswith('.csv')]
-    #    np.random.seed(42)
-    #    sampled_files = np.random.choice(all_files, size=int(len(all_files) * 0.5), replace=False)
-    #    df_list = []
-    #    for file in sampled_files:
-    #        file_path = os.path.join(directory, file)
-    #        df = pd.read_csv(file_path)
-    #        df_list.append(df)
-    #    return pd.concat(df_list, ignore_index=True)
-
-    def read_and_concat_random_csvs_from_s3(bucket_name, folder_key, sample_frac=0.5):
-        """
-        Reads a random fraction of CSV files directly from an AWS S3 bucket folder 
-        and concatenates them into a single DataFrame.
-
-        Args:
-            bucket_name: Name of the S3 bucket
-            folder_key: S3 folder key (prefix) where CSV files are stored
-            sample_frac: Fraction of CSV files to read (default is 0.5)
-
-        Returns:
-            A single pandas DataFrame combining all sampled CSV files
-        """
-        # Assume s3 variable is a boto3 S3 client or resource, already authenticated
-        # Example: s3 = boto3.client('s3') or s3 = boto3.resource('s3')
-        # Here, we use s3 as a boto3 client
-        global s3  # s3 should be defined elsewhere in the notebook/environment
-        random.seed(42)
-
-        # List all objects in the specified S3 folder
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=folder_key)
-        if 'Contents' not in response:
-            return pd.DataFrame()  # Return empty DataFrame if no files found
-
-        # Filter for CSV files
-        csv_files = [obj['Key'] for obj in response['Contents'] if obj['Key'].endswith('.csv')]
-
-        if not csv_files:
-            return pd.DataFrame()  # Return empty DataFrame if no CSVs found
-
-        sample_size = max(1, int(len(csv_files) * sample_frac))
-        sampled_files = random.sample(csv_files, sample_size)
-
-        dataframes = []
-        for key in sampled_files:
-            obj = s3.get_object(Bucket=bucket_name, Key=key)
-            file_content = obj['Body'].read().decode('utf-8')
-            df = pd.read_csv(StringIO(file_content))
-            df['source_file'] = key  # Optional: add filename for tracking
-            dataframes.append(df)
-
-        combined_df = pd.concat(dataframes, ignore_index=True)
-        return combined_df
-
     with st.spinner("Loading data..."):
-        #df_ICE_HEV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_ICE&HEV.xlsx")
-        #df_PHEV_EV = load_data_excel("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_Static_Data_PHEV&EV.xlsx")
-        
-        #df_dynamic_sample = load_csv_files_from_directory("G:\\DIYguru\\Notes and Sample Data\\VED-master\\Data\\VED_DynamicData_Part1")
         
         bucket_name = 's3aravindh973515031797'
-        ICE_HEV = 'DIYguru ML Source Data/VED_Static_Data_ICE&HEV.xlsx'
-        PHEV_EV = 'DIYguru ML Source Data/VED_Static_Data_PHEV&EV.xlsx'
-        part1 = 'DIYguru ML Source Data/VED_DynamicData_Part1/'
+        ICE_HEV = 'Cleaned up VED Source Data/df_ICE_HEV.parquet'
+        PHEV_EV = 'Cleaned up VED Source Data/df_PHEV_EV.parquet'
+        df_static = 'Cleaned up VED Source Data/df_static.parquet'
+        df_dynamic_sample = 'Cleaned up VED Source Data/df_dynamic_sample.parquet'
+        df = 'Cleaned up VED Source Data/df_VED.parquet'
 
-        df_ICE_HEV = read_excel_from_s3(bucket_name, ICE_HEV)
-        df_PHEV_EV = read_excel_from_s3(bucket_name, PHEV_EV)
-        df_dynamic_sample = read_and_concat_random_csvs_from_s3(bucket_name, part1, sample_frac=0.5)
+        df_ICE_HEV = read_parquet_from_s3(bucket_name, ICE_HEV)
+        df_PHEV_EV = read_parquet_from_s3(bucket_name, PHEV_EV)
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -205,11 +141,9 @@ with tabs[0]:
     )
     
     with st.spinner("Cleaning data..."):
-        df_ICE_HEV.replace('NO DATA', np.nan, inplace=True)
-        df_PHEV_EV.replace('NO DATA', np.nan, inplace=True)
-        df_ICE_HEV['Drive Wheels'] = df_ICE_HEV['Drive Wheels'].astype('object')
-        df_PHEV_EV.rename(columns={'EngineType': 'Vehicle Type'}, inplace=True)
-        df_static = pd.concat([df_ICE_HEV, df_PHEV_EV], ignore_index=True)
+
+        df_static = read_parquet_from_s3(bucket_name, df_static)
+        df_dynamic_sample = read_parquet_from_s3(bucket_name, df_dynamic_sample)
 
         st.write("#### Data Cleaning Summary")
         col1, col2 = st.columns(2)
@@ -239,7 +173,7 @@ with tabs[0]:
     )
     
     with st.spinner("Joining datasets..."):
-        df = df_dynamic_sample.merge(df_static, on='VehId', how='left')
+        df = read_parquet_from_s3(bucket_name, df)
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -264,93 +198,37 @@ with tabs[0]:
     )
     
     with st.spinner("Transforming data..."):
-        def categorize_oat(value):
-            if value < -20: return 'Extremely Cold'
-            elif -20 <= value < 0: return 'Cold'
-            elif 0 <= value < 10: return 'Cool'
-            elif 10 <= value < 20: return 'Mild'
-            elif 20 <= value < 30: return 'Warm'
-            elif value >= 30: return 'Hot'
-            else: return np.nan
 
-    df['OAT_Category'] = df['OAT[DegC]'].apply(categorize_oat)
-
-    reference_date = datetime(2017, 11, 1)
-    df['DateTime'] = pd.to_timedelta(df['DayNum'] - 1, unit='D') + reference_date
-    df['Date'] = df['DateTime'].dt.date
-    df['Time'] = df['DateTime'].dt.time
-
-    df['Distance[km]'] = df['Vehicle Speed[km/h]'] * (df['Timestamp(ms)'] / 3600000)
-
-    df['HV Battery Power[Watts]'] = df['HV Battery Voltage[V]'] * df['HV Battery Current[A]']
-
-    # Constants
-    AFR = 14.7  # typical AFR for gasoline engines
-    ρ_air = 1.184  # air density in kg/m³
-
-    def compute_fcr(df):
-    # Parse displacement in liters from 'Engine Configuration & Displacement' if format like "I4 2.0L"
-        def extract_displacement(val):
-            try:
-                return float(val.split()[-1].replace("L", ""))
-            except:
-                return np.nan
-
-        df['Displacement_L'] = df['Engine Configuration & Displacement'].apply(extract_displacement)
-
-        # Compute correction factor
-        df['correction'] = (1 + df['Short Term Fuel Trim Bank 1[%]']/100 + df['Long Term Fuel Trim Bank 1[%]']/100) / AFR
-
-        # Step 1: Use FuelRate if available
-        df['FCR'] = np.where(
-            ~df['Fuel Rate[L/hr]'].isna(),
-            df['Fuel Rate[L/hr]'],
-            np.nan
-        )
-
-        # Step 2: Else if MAF is available
-        maf_condition = df['FCR'].isna() & ~df['MAF[g/sec]'].isna()
-        df.loc[maf_condition, 'FCR'] = df.loc[maf_condition, 'MAF[g/sec]'] * df.loc[maf_condition, 'correction']
-
-        # Step 3: Else if AbsLoad and RPMeng are available
-        derived_condition = df['FCR'].isna() & ~df['Absolute Load[%]'].isna() & ~df['Engine RPM[RPM]'].isna() & ~df['Displacement_L'].isna()
-        maf_derived = (df['Absolute Load[%]'] / 100) * ρ_air * df['Displacement_L'] * df['Engine RPM[RPM]'] / 120
-        df.loc[derived_condition, 'FCR'] = maf_derived[derived_condition] * df.loc[derived_condition, 'correction']
-
-        return df
-
-    df = compute_fcr(df)
-
-    st.write("#### Transformation Results")
-        
-    st.write("**Distribution of Outside Air Temperature (OAT) Categories:**")
-    oat_dist = df['OAT_Category'].value_counts()
-    st.dataframe(oat_dist.reset_index().rename(columns={'index': 'OAT Category', 'OAT_Category': 'Count'}), use_container_width=True, hide_index=True)
-        
-    st.write("**Fuel Consumption Rate (FCR) Statistical Summary:**")
-    fcr_stats = df['FCR'].describe()
-    st.dataframe(fcr_stats.reset_index().rename(columns={'index': 'Statistic', 'FCR': 'Value'}), use_container_width=True, hide_index=True)    
+        st.write("#### Transformation Results")
             
-    st.write("**HV Battery Power[Watts]:**")
-    st.markdown(
-                """
-                The column **'HV Battery Power[Watts]'** is calculated as the product of **'HV Battery Voltage[V]'** and **'HV Battery Current[A]'** for each record in the dataset.
-                This represents the instantaneous electrical power output (in Watts) of the high-voltage battery at each timestamp.
-                \n
-                **Formula:**  
-                HV Battery Power [Watts] = HV Battery Voltage [V] × HV Battery Current [A]
-                """
-            )
+        st.write("**Distribution of Outside Air Temperature (OAT) Categories:**")
+        oat_dist = df['OAT_Category'].value_counts()
+        st.dataframe(oat_dist.reset_index().rename(columns={'index': 'OAT Category', 'OAT_Category': 'Count'}), use_container_width=True, hide_index=True)
             
-    st.write("**Final Dataset Overview:**")
-    st.dataframe(df.head(10), use_container_width=True, hide_index=True)
-            
-    buffer = io.StringIO()
-    df.info(buf=buffer)
-    info_str = buffer.getvalue()
-    with st.container():
-        st.text("Final Cleaned Data Info:")
-        st.text(info_str)
+        st.write("**Fuel Consumption Rate (FCR) Statistical Summary:**")
+        fcr_stats = df['FCR'].describe()
+        st.dataframe(fcr_stats.reset_index().rename(columns={'index': 'Statistic', 'FCR': 'Value'}), use_container_width=True, hide_index=True)    
+                
+        st.write("**HV Battery Power[Watts]:**")
+        st.markdown(
+                    """
+                    The column **'HV Battery Power[Watts]'** is calculated as the product of **'HV Battery Voltage[V]'** and **'HV Battery Current[A]'** for each record in the dataset.
+                    This represents the instantaneous electrical power output (in Watts) of the high-voltage battery at each timestamp.
+                    \n
+                    **Formula:**  
+                    HV Battery Power [Watts] = HV Battery Voltage [V] × HV Battery Current [A]
+                    """
+                )
+                
+        st.write("**Final Dataset Overview:**")
+        st.dataframe(df.head(10), use_container_width=True, hide_index=True)
+                
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        info_str = buffer.getvalue()
+        with st.container():
+            st.text("Final Cleaned Data Info:")
+            st.text(info_str)
 
 
 with tabs[1]:
