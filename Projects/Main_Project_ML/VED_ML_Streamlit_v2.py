@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
 from sklearn.cluster import KMeans
 
 st.set_page_config(page_title="VED ML Data Modelling", layout="centered", initial_sidebar_state="expanded")
@@ -980,7 +981,7 @@ with tabs[2]:
 
     # --- Streamlit Descriptions ---
     st.markdown("""
-    ### K-Means Clustering on Combined Dataset (Speed vs FCR by Vehicle Type)
+    ### K-Means Clustering (Speed vs FCR by Vehicle Type)
     - Loads the combined dataset and selects relevant features.
     - Maps vehicle type strings to numeric codes for clustering.
     - Runs the elbow method to suggest optimal cluster count.
@@ -1036,3 +1037,206 @@ with tabs[2]:
     # --- Cluster Assignment Table ---
     st.markdown("**Cluster Assignment Table (first 10 rows):**")
     st.dataframe(df_combined_sf.head(10), use_container_width=True)
+
+    st.markdown("""
+    ### Silhouette Score for KMeans Clustering
+    
+    This visualization helps identify the optimal number of clusters using the **Silhouette Score** metric.
+    - **Data Used**: 'Vehicle Speed[km/h]' and 'HV Battery Power[Watts]'
+    - **Range Tested**: Clusters from 2 to 4
+    - The **higher** the silhouette score, the **better** the clustering quality.
+    - Iterates over cluster numbers 2 to 4.
+    - Applies KMeans clustering on selected features.
+    - Computes **silhouette score** for each model to evaluate clustering quality.
+    - Displays both a **line chart** of scores and a **data table** for reference.
+    """)
+
+    df_combined_sb = df_combined[['Vehicle Speed[km/h]','HV Battery Power[Watts]']]
+
+    # Compute silhouette scores
+    silhouette_scores = []
+    for n_clusters in range(2, 5):
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        kmeans.fit(df_combined_sb[['Vehicle Speed[km/h]', 'HV Battery Power[Watts]']])
+        labels = kmeans.labels_
+        score = silhouette_score(df_combined_sb[['Vehicle Speed[km/h]', 'HV Battery Power[Watts]']], labels)
+        silhouette_scores.append((n_clusters, score))
+
+    # Convert to DataFrame for display
+    score_df = pd.DataFrame(silhouette_scores, columns=['Number of Clusters', 'Silhouette Score'])
+    st.dataframe(score_df)
+
+    # Plot the silhouette scores
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(score_df['Number of Clusters'], score_df['Silhouette Score'], marker='o', color='blue')
+    ax.set_title('Silhouette Scores for KMeans Clustering')
+    ax.set_xlabel('Number of Clusters')
+    ax.set_ylabel('Silhouette Score')
+    st.pyplot(fig)
+
+    st.markdown("""
+    ### K-Means Clustering (Speed vs Battery Power by Vehicle Type)
+    - 2x2 grid of scatter plots, one for each vehicle type, showing the relationship between 'Vehicle Speed[km/h]' and 'HV Battery Power[Watts]' for each type..
+    - It iterates over unique vehicle types, selects the corresponding subset of data, and plots the points colored by their KMeans cluster assignment.
+    - Visualizes clusters for each vehicle type (Speed vs Battery Power).
+    - Shows the cluster assignment table.
+    """)
+
+    df_combined_sb = df_combined[['Vehicle Type','Vehicle Speed[km/h]','HV Battery Power[Watts]']]
+    # map vehicle type to 0,1,2,3
+    df_combined_sb['Vehicle Type'] = df_combined_sb['Vehicle Type'].map({'ICE': 0, 'HEV': 1, 'EV': 2, 'PHEV': 3})
+
+    # Fit KMeans and assign clusters
+    df_combined_sb, pred, kmeans = fit_predict_kmeans(df_combined_sb, 3)
+
+    # --- Visualization: Clusters by Vehicle Type ---
+    vehicle_types = df_combined_sf['Vehicle Type'].unique()
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharey=True)
+    axes = axes.flatten()
+
+    for i, vtype in enumerate(vehicle_types):
+        ax = axes[i]
+        subset = df_combined_sb[df_combined_sb['Vehicle Type'] == vtype]
+        scatter = ax.scatter(
+        subset['Vehicle Speed[km/h]'],
+        subset['HV Battery Power[Watts]'],
+        c=subset['Cluster'],
+        cmap='viridis',
+        s=50
+    )
+        # Map numeric vehicle type back to string for title
+        vtype_str = {0: "ICE", 1: "HEV", 2: "EV", 3: "PHEV"}.get(vtype, str(vtype))
+        ax.set_title(f'Vehicle Type: {vtype_str}')
+        ax.set_xlabel('Speed')
+        ax.set_ylabel('Battery Power')
+        handles, labels = scatter.legend_elements(prop="colors")
+        ax.legend(handles, [f"Cluster {i}" for i in range(len(handles))])
+
+    fig.suptitle('KMeans Clusters: Speed vs Battery Power by Vehicle Type', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.markdown("""
+    **Outcome & Understanding (Battery Power Clustering):**
+
+    - **ICE & HEV:** All data points are assigned to a single cluster (Cluster 0), indicating almost no variation in battery power—expected, as these vehicles have little or no high-voltage battery activity.
+    - **PHEV & EV:** Multiple clusters are identified, reflecting more diverse battery power usage patterns. PHEVs show a wide range of battery power (including negative values, likely due to regenerative braking or charging), while EVs also display clustering based on battery power and speed.
+
+    **Conclusion:**  
+    Clustering reveals that battery power is only a meaningful differentiator for PHEV and EV types. ICE and HEV vehicles show negligible battery power variation, while PHEV and EV vehicles exhibit distinct operational patterns based on speed and battery power.
+    """)
+
+    # --- Cluster Assignment Table ---
+    st.markdown("**Cluster Assignment Table (first 10 rows):**")
+    st.dataframe(df_combined_sb.head(10), use_container_width=True)
+
+    st.markdown("""
+    ### KMeans Clustering: Outside Air Temperature vs FCR
+
+    This scatter plot visualizes KMeans clustering on:
+    - **X-axis**: Outside Air Temperature (`OAT[DegC]`)
+    - **Y-axis**: Fuel Consumption Rate (`FCR`)
+    - Points are **colored by cluster assignment** using the 'viridis' colormap.
+    - Useful for identifying patterns in vehicle behavior based on environmental conditions.
+    """)
+
+    df_combined_of = df_combined[['OAT[DegC]','FCR']]
+    
+    # Fit KMeans and assign clusters
+    df_combined_of, pred, kmeans = fit_predict_kmeans(df_combined_of,5)
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 4))
+    scatter = ax.scatter(
+        df_combined_of['OAT[DegC]'],
+        df_combined_of['FCR'],
+        c=df_combined_of['Cluster'],
+        cmap='viridis',
+        s=50
+    )
+    ax.set_xlabel('Outside Air Temperature')
+    ax.set_ylabel('FCR')
+    ax.set_title('KMeans Clusters: Outside Air Temperature vs FCR')
+
+    # Cluster Legend
+    handles, labels = scatter.legend_elements(prop="colors")
+    ax.legend(handles, [f"Cluster {i}" for i in range(len(handles))], title="Clusters")
+    st.pyplot(fig)
+
+    st.markdown("""
+    #### Cluster Analysis: Outside Air Temperature vs FCR
+
+    The scatter plot visualizes **KMeans clustering** results for the relationship between:
+    - **Outside Air Temperature (OAT[°C])**
+    - **Fuel Consumption Rate (FCR)**
+
+    #### Key Observations:
+    - The data is grouped into **5 distinct clusters (Cluster 0–4)**.
+    - **Cluster separation** appears to reflect patterns in how vehicles consume fuel under different outside temperatures.
+    - **Cluster 4** (yellow) tends to appear at **very low temperatures** (below -10°C), showing **higher FCR variability**.
+    - **Cluster 0 and 1** (dark colors) dominate the **moderate-to-warm temperature** range, where FCR is generally low.
+    - **Cluster 3** shows more spread across moderate temperatures and seems to include more varied FCR.
+
+    #### Insights:
+    - Fuel consumption behavior varies with **environmental conditions**, especially temperature.
+    - The model successfully segments driving patterns that may correspond to **cold-weather inefficiencies**, **efficient warm-weather driving**, or **transitional performance zones**.
+
+    Understanding these clusters can help:
+    - Optimize driving or energy usage under specific temperature conditions.
+    - Inform EV or hybrid battery management strategies.
+    """)
+
+    st.markdown("""
+    #### KMeans Clustering: Outside Air Temperature vs Battery Power
+
+    This scatter plot visualizes KMeans clustering on:
+    - **X-axis**: Outside Air Temperature (`OAT[DegC]`)
+    - **Y-axis**: HV Battery Power (`Watts`)
+    - Points are **colored by cluster assignment** using the 'viridis' colormap.
+    - Useful for identifying patterns in vehicle behavior based on environmental conditions.
+    """)
+
+    df_combined_ob = df_combined[['OAT[DegC]','HV Battery Power[Watts]']]
+    
+    # Fit KMeans and assign clusters
+    df_combined_ob, pred, kmeans = fit_predict_kmeans(df_combined_ob,5)
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(6, 4))
+    scatter = ax.scatter(
+        df_combined_ob['OAT[DegC]'],
+        df_combined_ob['HV Battery Power[Watts]'],
+        c=df_combined_ob['Cluster'],
+        cmap='viridis',
+        s=50
+    )
+    ax.set_xlabel('Outside Air Temperature')
+    ax.set_ylabel('Battery Power')
+    ax.set_title('KMeans Clusters: Outside Air Temperature vs Battery Power')
+
+    # Cluster Legend
+    handles, labels = scatter.legend_elements(prop="colors")
+    ax.legend(handles, [f"Cluster {i}" for i in range(len(handles))], title="Clusters")
+    st.pyplot(fig)
+
+    st.markdown("""
+    #### Cluster Analysis: Outside Air Temperature vs Battery Power
+
+    This scatter plot visualizes **KMeans clustering** applied to:
+    - **X-axis**: Outside Air Temperature (`OAT[DegC]`)
+    - **Y-axis**: HV Battery Power (`[Watts]`)
+    - Points are **grouped into 5 clusters (Cluster 0–4)** and **colored using the 'viridis' colormap**.
+
+    #### Key Observations:
+    - **Cluster 0** (purple) dominates the **upper power range**, indicating **higher battery output** at varying temperatures.
+    - **Cluster 1 and 3** (dark blue and light green) represent data with **significant negative battery power**, suggesting **regenerative braking or power intake scenarios**, especially in **moderate temperatures**.
+    - **Cluster 4** (yellow) appears consistent across low to moderate temperatures with a narrow range of battery power usage.
+    - The separation between clusters shows **how battery power usage varies across temperature bands** and operating modes.
+
+    #### Insights:
+    - Clusters effectively segment **vehicle operating conditions** — such as energy consumption, regeneration, or idle states — influenced by **external temperature**.
+    - This analysis can help improve:
+    - **Battery management algorithms**
+    - **Climate-aware energy optimization**
+    - **Driving behavior insights across seasons**
+    """)
