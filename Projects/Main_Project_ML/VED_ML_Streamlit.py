@@ -14,13 +14,9 @@ import random
 from io import StringIO
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.preprocessing import StandardScaler
 
 st.set_page_config(page_title="VED ML Data Loading & Preprocessing", layout="centered", initial_sidebar_state="expanded")
-st.title('VED ML Data Modelling')
+st.title('VED ML Data Loading & Preprocessing')
 
 st.markdown("""
     <style>
@@ -70,40 +66,31 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["Data Loading and Preprocessing",
-                 "Data Visualization - Sample Plots",
-                 "Exploratory Data Analysis",
-                 "ICE, HEV, EV, and PHEV Analysis",
-                 "Supervised Learning"])
+# Load environment variables only if running locally
+if not st.secrets:  # st.secrets is empty in local
+    load_dotenv()
 
-with tabs[0]:
-    st.header("Data Loading and Preprocessing")
-    
-    st.markdown("### 1. Data Loading")
-    st.markdown(
-        """
-        This section is responsible for importing both static and dynamic datasets required for further analysis. 
-        Static data is loaded from Excel files, while dynamic data is aggregated from multiple CSV files within a specified directory.
-        """
-    )
-    
-    # Load environment variables only if running locally
-    if not st.secrets:  # st.secrets is empty in local
-        load_dotenv()
+# Use st.secrets if on Streamlit Cloud, else use os.getenv
+AWS_ACCESS_KEY_ID = st.secrets.get("AWS_ACCESS_KEY_ID", os.getenv("AWS_ACCESS_KEY_ID"))
+AWS_SECRET_ACCESS_KEY = st.secrets.get("AWS_SECRET_ACCESS_KEY", os.getenv("AWS_SECRET_ACCESS_KEY"))
+AWS_DEFAULT_REGION = st.secrets.get("AWS_DEFAULT_REGION", os.getenv("AWS_DEFAULT_REGION"))
 
-    # Use st.secrets if on Streamlit Cloud, else use os.getenv
-    AWS_ACCESS_KEY_ID = st.secrets.get("AWS_ACCESS_KEY_ID", os.getenv("AWS_ACCESS_KEY_ID"))
-    AWS_SECRET_ACCESS_KEY = st.secrets.get("AWS_SECRET_ACCESS_KEY", os.getenv("AWS_SECRET_ACCESS_KEY"))
-    AWS_DEFAULT_REGION = st.secrets.get("AWS_DEFAULT_REGION", os.getenv("AWS_DEFAULT_REGION"))
-
-    s3 = boto3.client("s3",
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_DEFAULT_REGION
+s3 = boto3.client("s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_DEFAULT_REGION
     )
 
-    @st.cache_data
-    def read_parquet_from_s3(bucket_name, object_key):
+bucket_name = 's3aravindh973515031797'
+ICE_HEV = 'Cleaned up VED Source Data/df_ICE_HEV.parquet'
+PHEV_EV = 'Cleaned up VED Source Data/df_PHEV_EV.parquet'
+df_static = 'Cleaned up VED Source Data/df_static.parquet'
+df_dynamic_sample = 'Cleaned up VED Source Data/df_dynamic_sample.parquet'
+df = 'Cleaned up VED Source Data/df_VED.parquet'
+df_combined = 'Cleaned up VED Source Data/df_combined.parquet'
+
+@st.cache_data
+def read_parquet_from_s3(bucket_name, object_key):
         """
         Reads a Parquet file from an AWS S3 bucket using the global s3 client.
 
@@ -119,14 +106,23 @@ with tabs[0]:
         df = pd.read_parquet(BytesIO(file_content))
         return df
 
+tabs = st.tabs(["Data Loading and Preprocessing",
+                 "Data Visualization - Sample Plots",
+                 "Exploratory Data Analysis",
+                 "ICE, HEV, EV, and PHEV Analysis"])
+
+with tabs[0]:
+    st.header("Data Loading and Preprocessing")
+    
+    st.markdown("### 1. Data Loading")
+    st.markdown(
+        """
+        This section is responsible for importing both static and dynamic datasets required for further analysis. 
+        Static data is loaded from Excel files, while dynamic data is aggregated from multiple CSV files within a specified directory.
+        """
+    )
+
     with st.spinner("Loading data..."):
-        
-        bucket_name = 's3aravindh973515031797'
-        ICE_HEV = 'Cleaned up VED Source Data/df_ICE_HEV.parquet'
-        PHEV_EV = 'Cleaned up VED Source Data/df_PHEV_EV.parquet'
-        df_static = 'Cleaned up VED Source Data/df_static.parquet'
-        df_dynamic_sample = 'Cleaned up VED Source Data/df_dynamic_sample.parquet'
-        df = 'Cleaned up VED Source Data/df_VED.parquet'
 
         df_ICE_HEV = read_parquet_from_s3(bucket_name, ICE_HEV)
         df_PHEV_EV = read_parquet_from_s3(bucket_name, PHEV_EV)
@@ -760,448 +756,3 @@ with tabs[3]:
 
     st.subheader("Data Overview: PHEV Vehicles")
     st.dataframe(df_PHEV.describe(), use_container_width=True)
-
-with tabs[4]:
-
-    st.markdown("""
-        ### Supervised Learning - Regression     
-        - **Model:** Linear Regression.
-        - **X_test, y_test:** Test data for further analysis.
-        - **y_pred:** Predictions on test set.
-        - **Regression Line:** Model for plotting Actual vs Predicted regression line.
-    """)
-
-    @st.cache_data
-    def linear_regression_analysis(features, target, X, y):
-
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-
-        # Fit linear model
-        model = LinearRegression()
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-
-        # Print model coefficients
-        print("Model Coefficients:")
-        for feature, coef in zip(features, model.coef_):
-            print(f"  {feature}: {coef:.4f}")
-
-        # Print regression equation
-        equation = " + ".join([f"{coef:.4f}*{feature}" for feature, coef in zip(features, model.coef_)])
-        print(f"\nRegression Equation:")
-        print(f"  Slope of the regression line: {model.coef_}")
-        print(f"  Intercept: {model.intercept_:.4f}")
-        print(f"  Target Variable: {target}")
-        print(f"  {target} = {equation} + {model.intercept_:.4f}\n")
-
-        # Evaluation metrics
-        r2 = r2_score(y_test, y_pred)
-        mae = mean_absolute_error(y_test, y_pred)
-        mse = mean_squared_error(y_test, y_pred)
-        rmse = np.sqrt(mse)
-
-        print("Evaluation Metrics:")
-        print(f"  R² Score  : {r2:.4f}")
-        print(f"  MAE       : {mae:.4f}")
-        print(f"  MSE       : {mse:.4f}")
-        print(f"  RMSE      : {rmse:.4f}\n")
-
-        # Regression line for plotting (optional)
-        regression_line_model = LinearRegression()
-        regression_line_model.fit(y_test.values.reshape(-1, 1), y_pred)
-
-        return model, X_test, y_test, y_pred, regression_line_model, r2, mae, mse, rmse
-    
-    st.markdown("""
-        ### Linear Regression to Predict Energy Consumption in ICE, HEV, EV and PHEV Vehicles
-    """)
-
-    st.success("""### Predict FCR for ICE vehicles""")
-
-    features = ['Vehicle Speed[km/h]', 'Distance[km]', 'Generalized_Weight','MAF[g/sec]',
-                'Absolute Load[%]', 'Short Term Fuel Trim Bank 1[%]',
-                'Short Term Fuel Trim Bank 2[%]', 'Long Term Fuel Trim Bank 1[%]',
-                'Long Term Fuel Trim Bank 2[%]']
-    target = 'FCR'
-
-    # Split and train
-    X = df_ICE[features]
-    y = df_ICE[target]
-    model, X_test, y_test, y_pred, regression_line_model, r2, mae, mse, rmse = linear_regression_analysis(features, target, X, y)
-
-    # Top description
-    st.subheader("***Actual vs Predicted Fuel Consumption Rate (FCR) for ICE Vehicles***")
-    st.markdown("This scatter plot compares the **actual FCR** values with those predicted by the linear regression model. A red dashed line represents the fitted regression line.")
-
-    st.markdown("""
-        - **Used features:** Vehicle Speed[km/h], Distance[km], Generalized_Weight, MAF[g/sec], Absolute Load[%], Short Term Fuel Trim Bank 1[%], Short Term Fuel Trim Bank 2[%], Long Term Fuel Trim Bank 1[%], Long Term Fuel Trim Bank 2[%].
-        - Plotted Actual vs Predicted FCR values and regression line.
-        - Displayed evaluation metrics: R², MAE, MSE, and RMSE on the plot.
-    """)
-
-    # Plotting
-    fig, ax = plt.subplots(figsize=(6, 3))
-    y_test_sorted = np.sort(y_test)
-    y_line = regression_line_model.predict(y_test_sorted.reshape(-1, 1))
-
-    ax.scatter(y_test, y_pred, alpha=0.5, color='blue')
-    ax.plot(y_test_sorted, y_line, color='red', linestyle='--', linewidth=2, label='Regression Line')
-    ax.set_title('Actual vs Predicted FCR for ICE Vehicles')
-    ax.set_xlabel('Actual FCR (L/hr)')
-    ax.set_ylabel('Predicted FCR (L/hr)')
-    ax.grid(True)
-    ax.legend()
-
-    # Display metrics inside plot
-    textstr = f'R²: {r2_score(y_test, y_pred):.4f}\nMAE: {mean_absolute_error(y_test, y_pred):.4f}\nMSE: {mean_squared_error(y_test, y_pred):.4f}\nRMSE: {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}'
-    ax.text(1.20, 0.5, textstr, transform=ax.transAxes, fontsize=9,
-            verticalalignment='center', bbox=dict(facecolor='white', alpha=0.5))
-
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # --- Show Coefficients ---
-    st.markdown("**Model Coefficients:**")
-    coef_lines = [f"  {feature}: {coef:.4f}" for feature, coef in zip(features, model.coef_)]
-    st.code("\n".join(coef_lines))
-
-    # --- Regression Equation ---
-    equation = " + ".join([f"{coef:.4f}*{feature}" for feature, coef in zip(features, model.coef_)])
-    st.markdown("**Regression Equation:**")
-    st.code(f"Slope of the regression line: {model.coef_}\nIntercept: {model.intercept_:.4f}\nTarget Variable: {target}\n{target} = {equation} + {model.intercept_:.4f}")
-
-    # --- Evaluation Metrics ---
-    st.markdown("**Evaluation Metrics:**")
-    metric_text = f"""
-    R² Score  : {r2:.4f}
-    MAE       : {mae:.4f}
-    MSE       : {mse:.4f}
-    RMSE      : {rmse:.4f}
-    """
-    st.code(metric_text) 
-
-    st.markdown("""
-    ### SHAP Feature Importance for ICE Vehicle FCR Prediction
-    The following visualizations use SHAP (SHapley Additive exPlanations) to interpret the linear regression model predicting Fuel Consumption Rate (FCR) for ICE vehicles.
-    - **Bar Plot:** Shows mean absolute SHAP value for each feature (global importance).
-    - **Beeswarm Plot:** Shows the distribution and impact of each feature on model output.
-    - **Waterfall Plot:** Explains the SHAP values for a single prediction.
-    - **SHAP Values Table:** Displays the SHAP values for the test set.
-    """)
-
-    # Standardize features for SHAP and model
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
-
-    # Fit linear regression model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-
-    # SHAP explanation
-    explainer = shap.Explainer(model, X_train)
-    shap_values = explainer(X_test)
-
-    # Bar plot (global feature importance)
-    st.markdown("#### SHAP Bar Plot (Global Feature Importance)")
-    import matplotlib.pyplot as plt
-    fig_bar, ax_bar = plt.subplots(figsize=(8, 4))
-    shap.plots.bar(shap_values, show=False, ax=ax_bar)
-    st.pyplot(fig_bar)
-    plt.close(fig_bar)
-
-    # Beeswarm plot (feature impact distribution)
-    st.markdown("#### SHAP Beeswarm Plot (Feature Impact Distribution)")
-    plt.figure(figsize=(8, 4))
-    shap.plots.beeswarm(shap_values, show=False)
-    fig_beeswarm = plt.gcf()
-    st.pyplot(fig_beeswarm)
-    plt.close(fig_beeswarm)
-
-    # Waterfall plot (single prediction explanation)
-    st.markdown("#### SHAP Waterfall Plot (First Test Sample)")
-    plt.figure(figsize=(8, 4))
-    shap.plots.waterfall(shap_values[0], show=False)
-    fig_waterfall = plt.gcf()
-    st.pyplot(fig_waterfall)
-    plt.close(fig_waterfall)
-
-    # SHAP values as DataFrame
-    shap_df = pd.DataFrame(shap_values.values, columns=features)
-    st.markdown("#### SHAP Values Table (First 10 Test Samples)")
-    st.dataframe(shap_df.head(10), use_container_width=True)
-
-    st.markdown("""
-    **Comments:**
-    - The bar plot shows which features have the largest average impact on FCR prediction.
-    - The beeswarm plot visualizes how each feature's value (high/low) pushes the prediction higher or lower.
-    - The waterfall plot explains the SHAP value breakdown for a single prediction.
-    - The SHAP values table provides the actual SHAP values for each feature and test sample.
-    """)
-
-    features = ['Vehicle Speed[km/h]'
-                , 'Generalized_Weight'
-                ,'MAF[g/sec]'
-                ,'Absolute Load[%]'
-                ,'Long Term Fuel Trim Bank 1[%]']
-    target = 'FCR'
-
-    # Split and train
-    X = df_ICE[features]
-    y = df_ICE[target]
-    model, X_test, y_test, y_pred, regression_line_model, r2, mae, mse, rmse = linear_regression_analysis(features, target, X, y)
-
-    # Top description
-    st.subheader("***Actual vs Predicted Fuel Consumption Rate (FCR) for ICE Vehicles after SHAP Analysis***")
-
-    st.markdown("""
-        - **Used features:** Vehicle Speed[km/h], Generalized_Weight, MAF[g/sec], Absolute Load[%], Long Term Fuel Trim Bank 1[%]
-        - Plotted Actual vs Predicted FCR values and regression line.
-        - Displayed evaluation metrics: R², MAE, MSE, and RMSE on the plot.
-    """)
-
-
-    # Plotting
-    fig, ax = plt.subplots(figsize=(6, 3))
-    y_test_sorted = np.sort(y_test)
-    y_line = regression_line_model.predict(y_test_sorted.reshape(-1, 1))
-
-    ax.scatter(y_test, y_pred, alpha=0.5, color='blue')
-    ax.plot(y_test_sorted, y_line, color='red', linestyle='--', linewidth=2, label='Regression Line')
-    ax.set_title('Actual vs Predicted FCR for ICE Vehicles')
-    ax.set_xlabel('Actual FCR (L/hr)')
-    ax.set_ylabel('Predicted FCR (L/hr)')
-    ax.grid(True)
-    ax.legend()
-
-    # Display metrics inside plot
-    textstr = f'R²: {r2_score(y_test, y_pred):.4f}\nMAE: {mean_absolute_error(y_test, y_pred):.4f}\nMSE: {mean_squared_error(y_test, y_pred):.4f}\nRMSE: {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}'
-    ax.text(1.20, 0.5, textstr, transform=ax.transAxes, fontsize=9,
-            verticalalignment='center', bbox=dict(facecolor='white', alpha=0.5))
-
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # --- Show Coefficients ---
-    st.markdown("**Model Coefficients:**")
-    coef_lines = [f"  {feature}: {coef:.4f}" for feature, coef in zip(features, model.coef_)]
-    st.code("\n".join(coef_lines))
-
-    # --- Regression Equation ---
-    equation = " + ".join([f"{coef:.4f}*{feature}" for feature, coef in zip(features, model.coef_)])
-    st.markdown("**Regression Equation:**")
-    st.code(f"Slope of the regression line: {model.coef_}\nIntercept: {model.intercept_:.4f}\nTarget Variable: {target}\n{target} = {equation} + {model.intercept_:.4f}")
-
-    # --- Evaluation Metrics ---
-    st.markdown("**Evaluation Metrics:**")
-    metric_text = f"""
-    R² Score  : {r2:.4f}
-    MAE       : {mae:.4f}
-    MSE       : {mse:.4f}
-    RMSE      : {rmse:.4f}
-    """
-    st.code(metric_text) 
-
-    st.markdown("***The model can predict FCR for ICE vehicles reasonably well, but not as accurately as for HEVs. There is a moderate linear relationship, but other factors may influence FCR in ICE vehicles, or the selected features may not capture all the variability. Further feature engineering or model improvement could enhance prediction accuracy.***")
-
-    st.success("""### Predict FCR for HEV vehicles""")
-
-    features = ['MAF[g/sec]']
-    target = 'FCR'
-
-    # Split and train
-    X = df_HEV[features]
-    y = df_HEV[target]
-    model, X_test, y_test, y_pred, regression_line_model, r2, mae, mse, rmse = linear_regression_analysis(features, target, X, y)
-
-    # Top description
-    st.subheader("***Actual vs Predicted Fuel Consumption Rate (FCR) for HEV Vehicles***")
-    st.markdown("This scatter plot compares the **actual FCR** values with those predicted by the linear regression model. A red dashed line represents the fitted regression line.")
-
-    st.markdown("""
-        - **Used features:** MAF[g/sec]
-        - Plotted Actual vs Predicted FCR values and regression line.
-        - Displayed evaluation metrics: R², MAE, MSE, and RMSE on the plot.
-    """)
-    
-    # Plotting
-    fig, ax = plt.subplots(figsize=(6, 3))
-    y_test_sorted = np.sort(y_test)
-    y_line = regression_line_model.predict(y_test_sorted.reshape(-1, 1))
-
-    ax.scatter(y_test, y_pred, alpha=0.5, color='blue')
-    ax.plot(y_test_sorted, y_line, color='red', linestyle='--', linewidth=2, label='Regression Line')
-    ax.set_title('Actual vs Predicted FCR for HEV Vehicles')
-    ax.set_xlabel('Actual FCR (L/hr)')
-    ax.set_ylabel('Predicted FCR (L/hr)')
-    ax.grid(True)
-    ax.legend()
-
-    # Display metrics inside plot
-    textstr = f'R²: {r2_score(y_test, y_pred):.4f}\nMAE: {mean_absolute_error(y_test, y_pred):.4f}\nMSE: {mean_squared_error(y_test, y_pred):.4f}\nRMSE: {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}'
-    ax.text(1.20, 0.5, textstr, transform=ax.transAxes, fontsize=9,
-            verticalalignment='center', bbox=dict(facecolor='white', alpha=0.5))
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # --- Show Coefficients ---
-    st.markdown("**Model Coefficients:**")
-    coef_lines = [f"  {feature}: {coef:.4f}" for feature, coef in zip(features, model.coef_)]
-    st.code("\n".join(coef_lines))
-
-    # --- Regression Equation ---
-    equation = " + ".join([f"{coef:.4f}*{feature}" for feature, coef in zip(features, model.coef_)])
-    st.markdown("**Regression Equation:**")
-    st.code(f"Slope of the regression line: {model.coef_}\nIntercept: {model.intercept_:.4f}\nTarget Variable: {target}\n{target} = {equation} + {model.intercept_:.4f}")
-
-    # --- Evaluation Metrics ---
-    st.markdown("**Evaluation Metrics:**")
-    metric_text = f"""
-    R² Score  : {r2:.4f}
-    MAE       : {mae:.4f}
-    MSE       : {mse:.4f}
-    RMSE      : {rmse:.4f}
-    """
-    st.code(metric_text) 
-
-    st.markdown("***The linear regression model predicts FCR for HEV vehicles with high accuracy using the selected feature(s). The model's predictions are very close to the actual values, as shown by the high R² and low error metrics. This suggests that the chosen feature(s) (here, 'MAF[g/sec]') are strong predictors of FCR for HEVs in this dataset.***")
-
-    st.success("""### Predict Battery Power for EV vehicles""")
-
-    features = [
-    'Air Conditioning Power[Watts]',
-    'Heater Power[Watts]',
-    'Vehicle Speed[km/h]',
-    ]
-
-    target = 'HV Battery Power[Watts]'
-
-    # Split and train
-    X = df_EV[features]
-    y = df_EV[target]
-    model, X_test, y_test, y_pred, regression_line_model, r2, mae, mse, rmse = linear_regression_analysis(features, target, X, y)
-
-    # Top description
-    st.subheader("***Actual vs Predicted HV Battery Power for EVs***")
-    st.markdown("This scatter plot compares the **actual Battery Power** values with those predicted by the linear regression model. A red dashed line represents the fitted regression line.")
-
-    st.markdown("""
-        - **Used features:** Air Conditioning Power[Watts], Heater Power[Watts], Vehicle Speed[km/h]
-        - Plotted Actual vs Predicted Battery Power values and regression line.
-        - Displayed evaluation metrics: R², MAE, MSE, and RMSE on the plot.
-    """)
-    
-    # Plotting
-    fig, ax = plt.subplots(figsize=(6, 3))
-    y_test_sorted = np.sort(y_test)
-    y_line = regression_line_model.predict(y_test_sorted.reshape(-1, 1))
-
-    ax.scatter(y_test, y_pred, alpha=0.5, color='blue')
-    ax.plot(y_test_sorted, y_line, color='red', linestyle='--', linewidth=2, label='Regression Line')
-    ax.set_title('Actual vs Predicted HV Battery Power for EVs')
-    ax.set_xlabel('Actual Power (Watts)')
-    ax.set_ylabel('Predicted Power (Watts)')
-    ax.grid(True)
-    ax.legend()
-
-    # Display metrics inside plot
-    textstr = f'R²: {r2_score(y_test, y_pred):.4f}\nMAE: {mean_absolute_error(y_test, y_pred):.4f}\nMSE: {mean_squared_error(y_test, y_pred):.4f}\nRMSE: {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}'
-    ax.text(1.20, 0.5, textstr, transform=ax.transAxes, fontsize=9,
-            verticalalignment='center', bbox=dict(facecolor='white', alpha=0.5))
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # --- Show Coefficients ---
-    st.markdown("**Model Coefficients:**")
-    coef_lines = [f"  {feature}: {coef:.4f}" for feature, coef in zip(features, model.coef_)]
-    st.code("\n".join(coef_lines))
-
-    # --- Regression Equation ---
-    equation = " + ".join([f"{coef:.4f}*{feature}" for feature, coef in zip(features, model.coef_)])
-    st.markdown("**Regression Equation:**")
-    st.code(f"Slope of the regression line: {model.coef_}\nIntercept: {model.intercept_:.4f}\nTarget Variable: {target}\n{target} = {equation} + {model.intercept_:.4f}")
-
-    # --- Evaluation Metrics ---
-    st.markdown("**Evaluation Metrics:**")
-    metric_text = f"""
-    R² Score  : {r2:.4f}
-    MAE       : {mae:.4f}
-    MSE       : {mse:.4f}
-    RMSE      : {rmse:.4f}
-    """
-    st.code(metric_text)
-
-    st.markdown("***The selected features do not adequately explain or predict the HV Battery Power for EVs in this dataset. The model fails to capture the relationship, suggesting the need for better feature selection, more data, or a different modeling approach.***")
-
-    st.success("""### Predict Battery Power for PHEV vehicles""")
-
-    features = [
-    'Engine RPM[RPM]',
-    'Air Conditioning Power[Watts]',
-    'Vehicle Speed[km/h]',
-    'OAT[DegC]',
-    ]
-
-    target = 'HV Battery Power[Watts]'
-
-    # Split and train
-    X = df_PHEV[features]
-    y = df_PHEV[target]
-    model, X_test, y_test, y_pred, regression_line_model, r2, mae, mse, rmse = linear_regression_analysis(features, target, X, y)
-
-    # Top description
-    st.subheader("***Actual vs Predicted HV Battery Power for PHEVs***")
-    st.markdown("This scatter plot compares the **actual Battery Power** values with those predicted by the linear regression model. A red dashed line represents the fitted regression line.")
-
-    st.markdown("""
-        - **Used features:** Air Conditioning Power[Watts], Heater Power[Watts], Vehicle Speed[km/h]
-        - Plotted Actual vs Predicted Battery Power values and regression line.
-        - Displayed evaluation metrics: R², MAE, MSE, and RMSE on the plot.
-    """)
-    
-    # Plotting
-    fig, ax = plt.subplots(figsize=(6, 3))
-    y_test_sorted = np.sort(y_test)
-    y_line = regression_line_model.predict(y_test_sorted.reshape(-1, 1))
-
-    ax.scatter(y_test, y_pred, alpha=0.5, color='blue')
-    ax.plot(y_test_sorted, y_line, color='red', linestyle='--', linewidth=2, label='Regression Line')
-    ax.set_title('Actual vs Predicted HV Battery Power for PHEVs')
-    ax.set_xlabel('Actual Power (Watts)')
-    ax.set_ylabel('Predicted Power (Watts)')
-    ax.grid(True)
-    ax.legend()
-
-    # Display metrics inside plot
-    textstr = f'R²: {r2_score(y_test, y_pred):.4f}\nMAE: {mean_absolute_error(y_test, y_pred):.4f}\nMSE: {mean_squared_error(y_test, y_pred):.4f}\nRMSE: {np.sqrt(mean_squared_error(y_test, y_pred)):.4f}'
-    ax.text(1.20, 0.5, textstr, transform=ax.transAxes, fontsize=9,
-            verticalalignment='center', bbox=dict(facecolor='white', alpha=0.5))
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # --- Show Coefficients ---
-    st.markdown("**Model Coefficients:**")
-    coef_lines = [f"  {feature}: {coef:.4f}" for feature, coef in zip(features, model.coef_)]
-    st.code("\n".join(coef_lines))
-
-    # --- Regression Equation ---
-    equation = " + ".join([f"{coef:.4f}*{feature}" for feature, coef in zip(features, model.coef_)])
-    st.markdown("**Regression Equation:**")
-    st.code(f"Slope of the regression line: {model.coef_}\nIntercept: {model.intercept_:.4f}\nTarget Variable: {target}\n{target} = {equation} + {model.intercept_:.4f}")
-
-    # --- Evaluation Metrics ---
-    st.markdown("**Evaluation Metrics:**")
-    metric_text = f"""
-    R² Score  : {r2:.4f}
-    MAE       : {mae:.4f}
-    MSE       : {mse:.4f}
-    RMSE      : {rmse:.4f}
-    """
-    st.code(metric_text)
-
-    st.markdown("***The selected features are effective in predicting HV Battery Power for PHEVs. The model captures the relationship well, making it suitable for estimating power consumption in PHEV vehicles.***")
