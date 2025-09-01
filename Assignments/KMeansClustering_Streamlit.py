@@ -5,6 +5,9 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
+from dotenv import load_dotenv
+import boto3
+from io import BytesIO
 
 # -----------------------------------------------------------
 # Page Configuration
@@ -13,18 +16,50 @@ st.set_page_config(page_title="EV Clustering App", layout='wide')
 st.title("K-Means Clustering of EV Data (car_id vs regenwh)")
 
 # -----------------------------------------------------------
-# Load All CSVs from Directory
+# Load data from s3 bucket
 # -----------------------------------------------------------
-DATA_DIR = r"G:\DIY Guru\Data-Science-and-Engineering-Analytics\DEVRT\DEVRT\NISSAN LEAF"
+
+# Load environment variables from .env
+### Environment and Data Loading Setup
+
+
+load_dotenv()
+
+### S3 Bucket Configuration
+
+bucket_name = 's3aravindh973515031797'
+DATA_DIR = 'NISSAN LEAF/NISSAN_LEAF.parquet'
+
+### AWS S3 Client Configuration
+
+s3 = boto3.client("s3",
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_DEFAULT_REGION")
+)
+
+### S3 Parquet File Reader
 
 @st.cache_data
-def load_all_data(directory):
-    files = [f for f in os.listdir(directory) if f.endswith('.csv')]
-    dfs = [pd.read_csv(os.path.join(directory, f)) for f in files]
-    combined_df = pd.concat(dfs, ignore_index=True)
-    return combined_df
+def read_parquet_from_s3(bucket_name, object_key):
+        """
+        Reads a Parquet file from an AWS S3 bucket using the global s3 client.
 
-df = load_all_data(DATA_DIR)
+        Args:
+            bucket_name: Name of the S3 bucket.
+            object_key: Key (path) to the Parquet file in the S3 bucket.
+
+        Returns:
+            DataFrame containing the Parquet data.
+        """
+        response = s3.get_object(Bucket=bucket_name, Key=object_key)
+        file_content = response['Body'].read()
+        df = pd.read_parquet(BytesIO(file_content))
+        return df
+
+### Load Dataset
+
+df = read_parquet_from_s3(bucket_name, DATA_DIR)
 
 # -----------------------------------------------------------
 # Preprocessing
@@ -88,7 +123,6 @@ with tab2:
                           label=label, markersize=10,
                           markerfacecolor=col) 
                for label, col in zip(legend_labels, scatter.cmap(range(k_clusters)))]
-    ax.legend(handles=handles)
     st.pyplot(fig)
 
     st.subheader("Cluster Grouping Details")

@@ -2,6 +2,9 @@ import os                    # For directory and file operations
 import streamlit as st       # For building the web app UI
 import pandas as pd          # For data manipulation
 import numpy as np           # For numerical operations
+from dotenv import load_dotenv
+import boto3
+from io import BytesIO
 from sklearn.linear_model import LinearRegression 
 from sklearn.preprocessing import PolynomialFeatures 
 from sklearn.model_selection import train_test_split  # For splitting data
@@ -15,18 +18,49 @@ st.set_page_config(page_title="EV Route Classifier",layout='wide')  # Set Stream
 st.title("EV Route Classifier using Naive Bayes")                    # Display the main title
 
 # -----------------------------------------------------------
-# Load All CSVs from Directory
+# Load data from s3 bucket
 # -----------------------------------------------------------
-DATA_DIR = r"G:\DIY Guru\Data-Science-and-Engineering-Analytics\DEVRT\DEVRT\NISSAN LEAF"  # Directory containing CSVs
+
+# Load environment variables from .env
+### Environment and Data Loading Setup
+
+load_dotenv()
+
+### S3 Bucket Configuration
+
+bucket_name = 's3aravindh973515031797'
+DATA_DIR = 'NISSAN LEAF/NISSAN_LEAF.parquet'
+
+### AWS S3 Client Configuration
+
+s3 = boto3.client("s3",
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_DEFAULT_REGION")
+)
+
+### S3 Parquet File Reader
 
 @st.cache_data
-def load_all_data(directory):
-    files = [f for f in os.listdir(directory) if f.endswith('.csv')]   # List all CSV files in the directory
-    dfs = [pd.read_csv(os.path.join(directory, f)) for f in files]     # Read each CSV into a DataFrame
-    combined_df = pd.concat(dfs, ignore_index=True)                    # Concatenate all DataFrames
-    return combined_df
+def read_parquet_from_s3(bucket_name, object_key):
+        """
+        Reads a Parquet file from an AWS S3 bucket using the global s3 client.
 
-df = load_all_data(DATA_DIR)   # Load and combine all CSVs into a single DataFrame
+        Args:
+            bucket_name: Name of the S3 bucket.
+            object_key: Key (path) to the Parquet file in the S3 bucket.
+
+        Returns:
+            DataFrame containing the Parquet data.
+        """
+        response = s3.get_object(Bucket=bucket_name, Key=object_key)
+        file_content = response['Body'].read()
+        df = pd.read_parquet(BytesIO(file_content))
+        return df
+
+### Load Dataset
+
+df = read_parquet_from_s3(bucket_name, DATA_DIR)
 
 # -----------------------------------------------------------
 # Preprocessing
