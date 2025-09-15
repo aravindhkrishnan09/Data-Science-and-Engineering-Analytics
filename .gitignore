@@ -1,0 +1,28 @@
+.venv/
+.env/
+# Virtual Environments
+.venv/
+env/
+venv/
+
+# Environment Variables
+.env
+.env.*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+
+# Streamlit cache
+.streamlit/
+
+# Local dev containers (like in Codespaces)
+.devcontainer/
+
+# Kaggle
+.kaggle/
