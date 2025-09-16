@@ -20,7 +20,7 @@ For any given Data Science topic, provide:
 ## Action
 
 * Keep language **clear, short, and professional**.
-* Use **one-line formulas** wherever possible. 
+* Use **one-line formulas** wherever possible with **latex** formatting style. 
 * Use **bullets** and **numbering** wherever possible.
 * Display **name of the parameters** used in the function one by one.
 * Always generate the diagram **visual chart/diagram**.
@@ -34,8 +34,8 @@ Any **Data Science topic** (e.g., Linear Regression, Logistic Regression, Probab
 
 ## Output
 
-* **One-liner description with formula**
-* **One-liner description with formula for the sub-topics and important parameters**
+* **One-liner description with formula in latex formatting style*
+* **One-liner description with formula for the sub-topics and important parameters*
 * **Name of the parameters used in the function/formula.**
 * **Actual Mathematics behind the logic**
 * **Diagram (x & y axis, legends, labels)**
