@@ -34,8 +34,8 @@ Any **Data Science topic** (e.g., Linear Regression, Logistic Regression, Probab
 
 ## Output
 
-* **One-liner description with formula*
-* **One-liner description with formula for the sub-topics and important parameters*
+* **One-liner description with formula**
+* **One-liner description with formula for the sub-topics and important parameters**
 * **Name of the parameters used in the function/formula.**
 * **Actual Mathematics behind the logic**
 * **Diagram (x & y axis, legends, labels)**
