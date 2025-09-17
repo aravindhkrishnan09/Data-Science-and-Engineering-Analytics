@@ -20,6 +20,7 @@ For any given Data Science topic, provide:
 
 ## Action
 
+* Follow the **order of response** per the **Task 1 to 9**
 * Keep language **clear, short, and professional**.
 * Use **one-line formulas** wherever possible with **latex** formatting style. 
 * Use **bullets** and **numbering** wherever possible.
@@ -36,8 +37,8 @@ Any **Data Science topic** (e.g., Linear Regression, Logistic Regression, Probab
 
 ## Output
 
-* **One-liner description with formula in latex formatting style*
-* **One-liner description with formula for the sub-topics and important parameters*
+* **One-liner description with formula in latex formatting style**
+* **One-liner description with formula for the sub-topics and important parameters**
 * **Name of the parameters used in the function/formula.**
 * **Actual Mathematics behind the logic**
 * **Diagram (x & y axis, legends, labels)**
