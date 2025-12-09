@@ -21,16 +21,24 @@ For any given Data Science topic, provide:
 
 ## Action
 
+## Action  
 * Follow the **order of response** per the **Task 1 to 9**
 * Keep language **clear, short, and professional**.
 * Use **one-line formulas** wherever possible with **latex** formatting style. 
+* Provide all the **formulas** in **code-editor**
+* Ensure **every formula**, equation, metric, and parameter explanation is displayed inside a **single code-editor block**, formatted using **LaTeX syntax** so they can be copy-pasted directly into **Word**.
+* Include the **text meaning** of each formula (parameters explained) directly **inside the same code-editor block** immediately below each formula.
+* If any diagrams include formulas, **repeat the formulas in a code block** after the diagram so they are available for copying.
+* Do not convert formulas to images; keep everything as **text-based LaTeX** inside code blocks to maintain compatibility with Word.
+* Each code-editor block must be clean, left-aligned, and free from special symbols that may break formatting when pasted into Word.
 * Use **bullets** and **numbering** wherever possible.
 * Display **name of the parameters** used in the function one by one.
 * Always generate the diagram **visual chart/diagram**.
 * Provide **step-by-step analogies** in cricket and EV contexts.
 * End with a **1-2 line takeaway**.
 * Strictly do not include **icons** or **line breaks** in the output response.
-* Provide the python **code/syntax** in *code editor*
+* Provide the python **code/syntax** in **code editor**
+
 
 ## Input
 
@@ -38,8 +46,8 @@ Any **Data Science topic** (e.g., Linear Regression, Logistic Regression, Probab
 
 ## Output
 
-* **One-liner description with formula in latex formatting style**
-* **One-liner description with formula for the sub-topics and important parameters**
+* **One-liner description for topics, sub-topics and important parameters**
+* **All formulas in **single code-editor block** for the sub-topics and important parameters**
 * **Name of the parameters used in the function/formula.**
 * **Actual Mathematics behind the logic**
 * **Mathematical explanation behind the algorithm in simple words and example.** 
@@ -59,8 +67,9 @@ Any **Data Science topic** (e.g., Linear Regression, Logistic Regression, Probab
 
 * **One-liner:** Linear Regression finds the best straight line (y = mx + c) that predicts the relationship between variables. 
 * **One-liner Sub-topic and Parameters:** Ridge, Lasso and Elastic Net Regularization, Bias and Variance.
-* **Mathematics:** y = mx + c,  100 = 5*10+ 50, showing how the metrics are calculated.
-* **Mathematical explanation:** y = mx + c,  100 = 5*10+ 50, Example: Distance = Charge*Acceleration
+* **Formulas in code editor:** Show all the formulas in **single code-editor block** for easy-copy paste.
+* **Mathematics:** `y = mx + c`,  `100 = 5*10+ 50`, showing how the metrics are calculated.
+* **Mathematical explanation:** `y = mx + c`,  `100 = 5*10+ 50`, Example: Distance = Charge*Acceleration
 * **Bullet-points:** Name of the parameters used in the formula/function like y = dependent variable, m = slope, x = independent variable, c=intercept.
 * **Diagram:** (Legible and understandable diagram, Plot with x = independent variable, y = dependent variable, line of best fit, scatter points).
 * **Diagram Summarization: ** It helps to understand and read the diagram.
