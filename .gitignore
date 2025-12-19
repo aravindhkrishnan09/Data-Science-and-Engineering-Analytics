@@ -26,3 +26,5 @@ venv/
 
 # Kaggle
 .kaggle/
+
+EV_Battery_Health_Prediction_files/
