@@ -11,6 +11,7 @@ import os
 import matplotlib.pyplot as plt
 import boto3
 from io import BytesIO
+import tempfile
 from dotenv import load_dotenv
 from tensorflow.keras.models import load_model
 
@@ -40,24 +41,48 @@ Predict **EV Battery State of Health (SoH)** using:
 @st.cache_resource
 def load_all_models():
     models = {}
-    model_path = os.getcwd()
+    bucket_name = "s3aravindh973515031797"
+    prefix = "ML_DL_Models"
+
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        region_name=os.getenv("AWS_DEFAULT_REGION")
+    )
+
+    def load_s3_joblib(key):
+        with BytesIO() as f:
+            s3.download_fileobj(bucket_name, key, f)
+            f.seek(0)
+            return joblib.load(f)
+
+    def load_s3_keras(key):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp:
+            s3.download_fileobj(bucket_name, key, tmp)
+            tmp_path = tmp.name
+        try:
+            return load_model(tmp_path, compile=False)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
     try:
-        models["rf"] = joblib.load(f"{model_path}/rf_soh_model.joblib")
-        models["xgb"] = joblib.load(f"{model_path}/xgb_model.joblib")
-    except FileNotFoundError:
-        st.warning("RF / XGBoost models not found.")
+        models["rf"] = load_s3_joblib(f"{prefix}/rf_soh_model.joblib")
+        models["xgb"] = load_s3_joblib(f"{prefix}/xgb_model.joblib")
+    except Exception as e:
+        st.warning(f"RF / XGBoost models not found in S3: {e}")
 
     try:
-        models["lstm"] = load_model(f"{model_path}/lstm_soh_model.h5", compile=False)
-        models["gru"] = load_model(f"{model_path}/gru_soh_model.h5", compile=False)
-    except (FileNotFoundError, OSError):
-        st.warning("LSTM / GRU models not found.")
+        models["lstm"] = load_s3_keras(f"{prefix}/lstm_soh_model.h5")
+        models["gru"] = load_s3_keras(f"{prefix}/gru_soh_model.h5")
+    except Exception as e:
+        st.warning(f"LSTM / GRU models not found in S3: {e}")
 
     try:
-        scaler = joblib.load(f"{model_path}/soh_scaler.joblib")
-    except FileNotFoundError:
-        st.error("Scaler not found.")
+        scaler = load_s3_joblib(f"{prefix}/soh_scaler.joblib")
+    except Exception as e:
+        st.error(f"Scaler not found in S3: {e}")
         return None, None
 
     return models, scaler
@@ -200,6 +225,31 @@ if input_mode == "Single Cycle":
     avg_current = st.sidebar.slider("Avg Current (A)", -2.0, 0.0, -1.0)
     avg_temp = st.sidebar.slider("Avg Temp (°C)", 20.0, 45.0, 25.0)
 
+# --- Display App Info by default ---
+st.markdown("### ℹ️ App Functionalities")
+if is_dl:
+     st.markdown("""
+     This application provides an intelligent interface for EV battery health monitoring:
+     *   **Deep Learning Prediction**: Uses LSTM/GRU networks to capture temporal degradation patterns from cycle sequences.
+     *   **RUL Forecasting**: Estimates remaining useful life based on the trajectory learned by the neural network.
+     *   **Trend Visualization**: Displays the complete degradation curve and RUL projection.
+     """)
+elif input_mode == "Batch":
+    st.markdown("""
+    This application provides an intelligent interface for EV battery health monitoring:
+    *   **Batch SoH Prediction**: Processes historical cycle data to map degradation trends using ML models.
+    *   **RUL Trajectory**: Projects the Remaining Useful Life curve over the battery's history.
+    *   **Visual Analysis**: Interactive charts to track health decline across cycles.
+    """)
+else:
+    st.markdown("""
+    This application provides an intelligent interface for EV battery health monitoring:
+    *   **State of Health (SoH) Prediction**: Uses Machine Learning (Random Forest/XGBoost) to estimate battery health from single-cycle metrics.
+    *   **Remaining Useful Life (RUL)**: Estimates remaining cycles based on current SoH and a nominal 1000-cycle life.
+    *   **Explainability**: Visualizes feature contributions using SHAP values to understand model decisions.
+    """)
+st.markdown("---")
+
 # ============================================================
 # Run Prediction
 # ============================================================
@@ -226,16 +276,7 @@ if st.button("Run Prediction"):
             input_scaled = scaler.transform(input_data)
             pred = models[model_key].predict(input_scaled)[0]
 
-            tab_info, tab_soh, tab_rul = st.tabs(["App Info", "State of Health (SoH)", "Remaining Useful Life (RUL)"])
-
-            with tab_info:
-                st.markdown("### ℹ️ App Functionalities")
-                st.markdown("""
-                This application provides an intelligent interface for EV battery health monitoring:
-                *   **State of Health (SoH) Prediction**: Uses Machine Learning (Random Forest/XGBoost) to estimate battery health from single-cycle metrics.
-                *   **Remaining Useful Life (RUL)**: Estimates remaining cycles based on current SoH and a nominal 1000-cycle life.
-                *   **Explainability**: Visualizes feature contributions using SHAP values to understand model decisions.
-                """)
+            tab_soh, tab_rul = st.tabs(["State of Health (SoH)", "Remaining Useful Life (RUL)"])
 
             with tab_soh:
                 st.metric("Predicted SoH", f"{pred:.2%}")
@@ -281,16 +322,7 @@ if st.button("Run Prediction"):
             
             input_df["Predicted SoH"] = preds
             
-            tab_info, tab_soh, tab_rul = st.tabs(["App Info", "State of Health (SoH)", "Remaining Useful Life (RUL)"])
-            
-            with tab_info:
-                st.markdown("### ℹ️ App Functionalities")
-                st.markdown("""
-                This application provides an intelligent interface for EV battery health monitoring:
-                *   **Batch SoH Prediction**: Processes historical cycle data to map degradation trends using ML models.
-                *   **RUL Trajectory**: Projects the Remaining Useful Life curve over the battery's history.
-                *   **Visual Analysis**: Interactive charts to track health decline across cycles.
-                """)
+            tab_soh, tab_rul = st.tabs(["State of Health (SoH)", "Remaining Useful Life (RUL)"])
 
             with tab_soh:
                 st.subheader(f"Batch Prediction Results ({model_choice})")
@@ -336,16 +368,7 @@ if st.button("Run Prediction"):
             "Predicted SoH": preds
         }).set_index("Cycle")
 
-        tab_info, tab_soh, tab_rul = st.tabs(["App Info", "State of Health (SoH)", "Remaining Useful Life (RUL)"])
-        
-        with tab_info:
-             st.markdown("### ℹ️ App Functionalities")
-             st.markdown("""
-             This application provides an intelligent interface for EV battery health monitoring:
-             *   **Deep Learning Prediction**: Uses LSTM/GRU networks to capture temporal degradation patterns from cycle sequences.
-             *   **RUL Forecasting**: Estimates remaining useful life based on the trajectory learned by the neural network.
-             *   **Trend Visualization**: Displays the complete degradation curve and RUL projection.
-             """)
+        tab_soh, tab_rul = st.tabs(["State of Health (SoH)", "Remaining Useful Life (RUL)"])
 
         with tab_soh:
             st.line_chart(
