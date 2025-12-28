@@ -35,3 +35,6 @@ VED_DynamicData_Part1
 VED_DynamicData_Part2
 sample_logs
 other_source_files
+
+smart_ev_energy_logs_dirty.csv
+summary_statistics.csv
