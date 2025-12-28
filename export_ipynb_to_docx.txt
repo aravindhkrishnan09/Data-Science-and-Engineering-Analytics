@@ -1,4 +1,4 @@
-quarto render EV_Battery_Health_Prediction.ipynb --to docx --reference-doc custom-reference.docx -M toc:true -M number-sections:true -M execute.warning:false
+quarto render EV_Battery_Health_Prediction.ipynb --to docx --output EV_Battery_Health_Prediction_no_code.docx --reference-doc custom-reference.docx -M toc:true -M number-sections:true -M execute.warning:false
 quarto render VED_ML.ipynb --to docx --reference-doc custom-reference.docx -M toc:true -M number-sections:true -M execute.warning:false
 quarto render EV_Battery_Health_Prediction.ipynb --to pdf --reference-doc custom-reference.docx -M toc:true -M number-sections:true -M execute.warning:false
 
@@ -26,3 +26,6 @@ quarto render EV_Battery_Health_Prediction.ipynb --to docx --reference-doc custo
 #| echo: false
 import pandas as pd
 ...
+
+
+quarto render EV_Battery_Health_Prediction.ipynb --to docx --output EV_Battery_Health_Prediction_no_code.docx --reference-doc custom-reference.docx -M toc:true -M number-sections:true -M execute.warning:false -M echo:false -M execute.error:false
