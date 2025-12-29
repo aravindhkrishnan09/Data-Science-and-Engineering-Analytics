@@ -33,6 +33,8 @@ Data-Science-and-Engineering-Analytics/
 ### **Objective**
 To develop an **Intelligent Predictive Maintenance System** that estimates the **State of Health (SoH)** and forecasts the **Remaining Useful Life (RUL)** of Lithium-ion batteries using machine learning and deep learning techniques.
 
+[EV Battery Health Prediction ]([https://www.google.com](https://aravindhgk-z4pcfbk.gamma.site/))
+
 ### **Source Data**
 
 #### **Primary Dataset: NASA PCoE Battery Data Set**
