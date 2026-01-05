@@ -1,3 +1,9 @@
+Data Science Simplifier
+
+[Data Science Simplifier] (https://chatgpt.com/g/g-68babb696d1c81919c7552001e01bbd9-data-science-simplifier)
+
+Explains Data Science topics simply with formulas, diagrams, and analogies.
+
 # Custom GPT Prompt – Data Science Simplifier
 
 ## Role
