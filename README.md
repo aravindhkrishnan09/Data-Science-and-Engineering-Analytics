@@ -40,11 +40,12 @@ To develop an **Intelligent Predictive Maintenance System** that estimates the *
 #### **Primary Dataset: NASA PCoE Battery Data Set**
 - **Dataset Name**: NASA Prognostics Center of Excellence (PCoE) Battery Data Set
 - **Battery Types**: Li-ion 18650 batteries
-- **Battery IDs**: B0005, B0006, B0007, B0018, B0028
+- **Battery IDs**: B0005, B0006, B0007, B0018
 - **Format**: Raw MATLAB (`.mat`) files containing nested hierarchical structures
 - **Location**: `Capstone_Project/source_data/`
 
 #### **Data Structure**
+Each `.mat` file contains:
 Each `.mat` file contains:
 - **Cycle-level data**: Charge, discharge, and impedance operations
 - **Measured Parameters**:
@@ -62,12 +63,11 @@ Each `.mat` file contains:
 
 #### **Processed Data Files**
 - `Flattened_b0005.csv`, `Flattened_b0006.csv`, `Flattened_b0007.csv`, `Flattened_b0018.csv`: Flattened hierarchical data
-- `final_df_export.csv`: Complete aggregated dataset
-- `final_df_export - b0005 10 cycles.csv`: Sample subset for testing
+- `final_df_export.csv`: Complete aggregated dataset used for modeling.
 
 #### **Model Artifacts**
-- `lstm_soh_model.h5`, `gru_soh_model.h5`: Deep learning models (Keras/TensorFlow)
-- `gru_soh_model.joblib`: Serialized GRU model
+- `lstm_soh_model.keras`, `gru_soh_model.keras`: Deep learning models (Keras/TensorFlow)
+- `rf_soh_model.joblib`, `xgb_model.joblib`: Serialized machine learning models.
 - `soh_scaler.joblib`: Feature scaler for preprocessing
 
 ### **Key Operations & Tasks**
