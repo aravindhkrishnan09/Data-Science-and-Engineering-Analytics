@@ -1,5 +1,7 @@
 # Capstone Project: EV Battery Health Prediction
 
+[EV Battery Health Prediction](https://ev-battery-health-predic-z4pcfbk.gamma.site/)
+
 ## 1. Objective
 
 To develop an **Intelligent Predictive Maintenance System** that estimates the **State of Health (SoH)** and forecasts the **Remaining Useful Life (RUL)** of Lithium-ion batteries using machine learning and deep learning techniques.
@@ -16,7 +18,6 @@ To develop an **Intelligent Predictive Maintenance System** that estimates the *
 - Integrate reinforcement learning (Q-learning for charging optimization).
 - Achieve engineering-grade data quality (<5% missing data).
 
-[EV Battery Health Prediction Website](https://aravindhgk-z4pcfbk.gamma.site/)
 
 ## 2. Source Data
 
