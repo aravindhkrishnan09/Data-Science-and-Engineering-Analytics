@@ -115,6 +115,16 @@ Each `.mat` file contains:
   - Enhanced model transparency for engineering decisions.
 
 ### 4. Deployment
+- **RAG System (AI Assistant)**:
+  - **Location**: `Capstone_Project/RAG/main.py`
+  - **Objective**: Provides a conversational interface to query project details, methodologies, and results.
+  - **Tech Stack**:
+    - **LLM**: Google Gemini 2.5 Flash.
+    - **Retrieval**: Vertex AI Search (Data Store).
+    - **UI**: Streamlit.
+  - **Features**:
+    - Grounded responses based on project data.
+    - Source attribution for transparency.
 - **Web Application**:
   - Built an interactive dashboard using **Streamlit** (`EV_Battery_Health_Prediction_App.py`, `EV_Battery_Health_Prediction_App_v2.py`).
   - Features:
