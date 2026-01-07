@@ -1,5 +1,7 @@
 # EV Battery Health Prediction - RAG System
 
+https://ev-battery-rag-1023905756100.us-central1.run.app
+
 This directory contains the **Retrieval-Augmented Generation (RAG)** system for the EV Battery Health Prediction project. It serves as an intelligent AI assistant capable of answering complex questions about the project's methodology, datasets, models, and results by grounding its responses in the actual project documentation.
 
 ## 🚀 Overview
