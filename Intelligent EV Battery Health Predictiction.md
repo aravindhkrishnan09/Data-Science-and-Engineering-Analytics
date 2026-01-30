@@ -137,7 +137,7 @@ Predictive Maintenance for Electric Vehicle (EV) batteries through **State of He
 ## Knowledge Systems & Automation
 
 ### Reference Materials
-- [ML Reference Handbook](https://docs.google.com/document/d/124kgXhx3bXfq7GbmAUBpu5sGk1QKvqUau468rDnHRVk/edit)
+- [ML Reference Handbook](https://docs.google.com/document/d/124kgXhx3bXfq7GbmAUBpu5sGk1QKvqUau468rDnHRVk/edit?tab=t.bwyqhzzhi4q9)
 
 ### Custom AI Agents
 - [AI Agents Repository](https://github.com/aravindhkrishnan09/Data-Science-and-Engineering-Analytics/tree/main/AI)
