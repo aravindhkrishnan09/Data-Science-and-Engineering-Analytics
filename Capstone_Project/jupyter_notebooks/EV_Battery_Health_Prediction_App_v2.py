@@ -6,15 +6,15 @@ import os
 import warnings
 
 # Suppress TensorFlow oneDNN warnings
-# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 # Suppress scikit-learn version warnings
-# warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Suppress TensorFlow deprecation warnings
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-#warnings.filterwarnings('ignore', category=DeprecationWarning, module='tensorflow')
-# warnings.filterwarnings('ignore', category=DeprecationWarning, module='keras')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='tensorflow')
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='keras')
 
 import streamlit as st
 import pandas as pd
@@ -107,47 +107,115 @@ models, scaler = load_all_models()
 # ============================================================
 
 def plot_shap_explainability(model, input_scaled, feature_names, model_name):
-    explainer = shap.TreeExplainer(model)
-    shap_values_raw = explainer.shap_values(input_scaled)
-
-    # Ensure shap_values is a 1D array of feature importances for a single prediction
-    if isinstance(shap_values_raw, list):
-        # For multi-output models, shap_values_raw is a list of arrays.
-        # We take the SHAP values for the first output.
-        shap_values = shap_values_raw[0]
-    else:
-        shap_values = shap_values_raw
+    """
+    Generate SHAP explainability plots for tree-based ML models.
     
-    # If shap_values is still 2D (e.g., (1, num_features)), flatten it to 1D
-    if shap_values.ndim > 1:
-        shap_values = shap_values.flatten()
-
-    shap_df = pd.DataFrame({
-        "Feature": feature_names,
-        "SHAP Value": shap_values
-    }).sort_values(by="SHAP Value", key=abs, ascending=False)
-
-    st.subheader(f"Model Explainability – {model_name}")
-
-    # --- SHAP Bar Plot ---
-    fig_bar, ax = plt.subplots(figsize=(5, 3))
-    ax.barh(shap_df["Feature"], shap_df["SHAP Value"])
-    ax.set_title("Feature Impact on SoH Prediction")
-    ax.invert_yaxis()
-    st.pyplot(fig_bar)
-
-    # --- SHAP Waterfall Plot ---
-    fig_wf = plt.figure()
-    shap.plots.waterfall(
-        shap.Explanation(
-            values=shap_values, # Use the 1D shap_values
-            base_values=explainer.expected_value,
-            data=input_scaled[0],
+    Args:
+        model: Trained tree-based model (RandomForest, XGBoost, etc.)
+        input_scaled: Scaled input features (2D array, shape: (1, num_features))
+        feature_names: List of feature names
+        model_name: Name of the model for display
+    """
+    try:
+        # Initialize TreeExplainer
+        explainer = shap.TreeExplainer(model)
+        
+        # Ensure input_scaled is 2D array (even for single prediction)
+        input_scaled = np.atleast_2d(input_scaled)
+        if input_scaled.shape[0] != 1:
+            st.warning("SHAP explainability works best with single predictions. Using first row.")
+            input_scaled = input_scaled[:1]
+        
+        # Get SHAP values
+        shap_values_raw = explainer.shap_values(input_scaled)
+        
+        # Handle different return types from TreeExplainer
+        if isinstance(shap_values_raw, list):
+            # Multi-output models return a list of arrays
+            shap_values = shap_values_raw[0]
+        else:
+            shap_values = shap_values_raw
+        
+        # Convert to numpy array and ensure 1D for single prediction
+        shap_values = np.asarray(shap_values)
+        if shap_values.ndim > 1:
+            # For single prediction, extract the first row
+            shap_values = shap_values[0] if shap_values.shape[0] == 1 else shap_values.flatten()
+        
+        # Ensure shap_values matches number of features
+        num_features = len(feature_names)
+        if len(shap_values) != num_features:
+            st.warning(f"SHAP values count ({len(shap_values)}) doesn't match features ({num_features}). Truncating/padding.")
+            if len(shap_values) > num_features:
+                shap_values = shap_values[:num_features]
+            else:
+                shap_values = np.pad(shap_values, (0, num_features - len(shap_values)), 'constant')
+        
+        # Create DataFrame for bar plot
+        shap_df = pd.DataFrame({
+            "Feature": feature_names,
+            "SHAP Value": shap_values
+        }).sort_values(by="SHAP Value", key=abs, ascending=False)
+        
+        st.subheader(f"Model Explainability – {model_name}")
+        
+        # --- SHAP Bar Plot ---
+        fig_bar, ax = plt.subplots(figsize=(8, 4))
+        colors = ['red' if x < 0 else 'green' for x in shap_df["SHAP Value"]]
+        ax.barh(shap_df["Feature"], shap_df["SHAP Value"], color=colors)
+        ax.set_title("Feature Impact on SoH Prediction", fontsize=12, fontweight='bold')
+        ax.set_xlabel("SHAP Value", fontsize=10)
+        ax.axvline(x=0, color='black', linestyle='--', linewidth=0.8)
+        ax.invert_yaxis()
+        plt.tight_layout()
+        st.pyplot(fig_bar)
+        plt.close(fig_bar)
+        
+        # --- SHAP Waterfall Plot ---
+        # Extract base value (expected value) - must be a scalar
+        base_val = explainer.expected_value
+        if base_val is None:
+            # Fallback: use mean of predictions if expected_value is None
+            base_val = float(model.predict(input_scaled).mean())
+        else:
+            base_val = np.asarray(base_val)
+            if base_val.ndim > 0:
+                # If array, take first element
+                base_val = float(base_val.flat[0])
+            else:
+                base_val = float(base_val)
+        
+        # Prepare data for Explanation object
+        data_values = input_scaled[0]
+        if data_values.ndim > 1:
+            data_values = data_values.flatten()
+        
+        # Ensure data_values matches feature count
+        if len(data_values) != num_features:
+            if len(data_values) > num_features:
+                data_values = data_values[:num_features]
+            else:
+                data_values = np.pad(data_values, (0, num_features - len(data_values)), 'constant')
+        
+        # Create SHAP Explanation object
+        explanation = shap.Explanation(
+            values=shap_values,
+            base_values=base_val,
+            data=data_values,
             feature_names=feature_names
-        ),
-        show=False
-    )
-    st.pyplot(fig_wf)
+        )
+        
+        # Generate waterfall plot
+        fig_wf = plt.figure(figsize=(10, 6))
+        shap.plots.waterfall(explanation, show=False)
+        plt.title(f"SHAP Waterfall Plot - {model_name}", fontsize=12, fontweight='bold', pad=20)
+        plt.tight_layout()
+        st.pyplot(fig_wf)
+        plt.close(fig_wf)
+        
+    except Exception as e:
+        st.error(f"Error generating SHAP plots: {str(e)}")
+        st.info("SHAP explainability requires tree-based models. Please ensure you're using Random Forest or XGBoost.")
 
 # ============================================================
 # S3 Data Loader (DL Models)
