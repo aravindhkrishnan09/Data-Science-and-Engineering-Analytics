@@ -108,10 +108,19 @@ models, scaler = load_all_models()
 
 def plot_shap_explainability(model, input_scaled, feature_names, model_name):
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(input_scaled)
+    shap_values_raw = explainer.shap_values(input_scaled)
 
-    if isinstance(shap_values, list):
-        shap_values = shap_values[0]
+    # Ensure shap_values is a 1D array of feature importances for a single prediction
+    if isinstance(shap_values_raw, list):
+        # For multi-output models, shap_values_raw is a list of arrays.
+        # We take the SHAP values for the first output.
+        shap_values = shap_values_raw[0]
+    else:
+        shap_values = shap_values_raw
+    
+    # If shap_values is still 2D (e.g., (1, num_features)), flatten it to 1D
+    if shap_values.ndim > 1:
+        shap_values = shap_values.flatten()
 
     shap_df = pd.DataFrame({
         "Feature": feature_names,
@@ -131,7 +140,7 @@ def plot_shap_explainability(model, input_scaled, feature_names, model_name):
     fig_wf = plt.figure()
     shap.plots.waterfall(
         shap.Explanation(
-            values=shap_values[0],
+            values=shap_values, # Use the 1D shap_values
             base_values=explainer.expected_value,
             data=input_scaled[0],
             feature_names=feature_names
