@@ -2,12 +2,25 @@
 # EV Battery Health Prediction System (ML + DL + SHAP)
 # ============================================================
 
+import os
+import warnings
+
+# Suppress TensorFlow oneDNN warnings
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+# Suppress scikit-learn version warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
+
+# Suppress TensorFlow deprecation warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='tensorflow')
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='keras')
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 import shap
-import os
 import matplotlib.pyplot as plt
 import boto3
 from io import BytesIO
