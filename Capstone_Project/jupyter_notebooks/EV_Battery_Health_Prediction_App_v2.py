@@ -6,15 +6,15 @@ import os
 import warnings
 
 # Suppress TensorFlow oneDNN warnings
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 # Suppress scikit-learn version warnings
-warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
+# warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 # Suppress TensorFlow deprecation warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-warnings.filterwarnings('ignore', category=DeprecationWarning, module='tensorflow')
-warnings.filterwarnings('ignore', category=DeprecationWarning, module='keras')
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+#warnings.filterwarnings('ignore', category=DeprecationWarning, module='tensorflow')
+# warnings.filterwarnings('ignore', category=DeprecationWarning, module='keras')
 
 import streamlit as st
 import pandas as pd
@@ -124,7 +124,7 @@ def plot_shap_explainability(model, input_scaled, feature_names, model_name):
 
     shap_df = pd.DataFrame({
         "Feature": feature_names,
-        "SHAP Value": shap_values[0]
+        "SHAP Value": shap_values
     }).sort_values(by="SHAP Value", key=abs, ascending=False)
 
     st.subheader(f"Model Explainability – {model_name}")
