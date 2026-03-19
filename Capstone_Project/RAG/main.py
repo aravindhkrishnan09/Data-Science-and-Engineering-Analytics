@@ -46,7 +46,7 @@ def load_model():
         "Your task is to answer user questions accurately based strictly on the retrieved context. "
         "If the information is not available in the context, politely state that you do not have that information. "
         "Do not hallucinate or make up facts outside of the provided documents. "
-        "After providing the answer, ALWAYS suggest 3 relevant follow-up questions that the user might find useful. "
+        "After providing the answer, ALWAYS suggest 2 relevant follow-up questions that the user might find useful. "
         "Format the follow-up questions under the heading '\n\n### Follow-up Questions' as bullet points."
     )
     
@@ -85,7 +85,7 @@ if prompt := st.chat_input("Ask me anything about your data..."):
                     prompt,
                     tools=[grounding_tool],
                     generation_config={"temperature": 0.0
-                    #,"max_output_tokens": 1024,
+                    ,"max_output_tokens": 1024,
                     }
                 )
                 
