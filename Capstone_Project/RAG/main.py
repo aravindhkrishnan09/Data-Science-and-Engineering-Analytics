@@ -41,7 +41,19 @@ def load_model():
         )
     )
     
-    model = GenerativeModel("gemini-2.5-flash")
+    system_instruction = (
+        "You are an expert AI assistant for the 'EV Battery Health Prediction Project'. "
+        "Your task is to answer user questions accurately based strictly on the retrieved context. "
+        "If the information is not available in the context, politely state that you do not have that information. "
+        "Do not hallucinate or make up facts outside of the provided documents. "
+        "After providing the answer, ALWAYS suggest 3 relevant follow-up questions that the user might find useful. "
+        "Format the follow-up questions under the heading '\n\n### Follow-up Questions' as bullet points."
+    )
+    
+    model = GenerativeModel(
+        "gemini-2.5-flash",
+        system_instruction=system_instruction
+    )
     return model, grounding_tool
 
 model, grounding_tool = load_model()
@@ -72,8 +84,8 @@ if prompt := st.chat_input("Ask me anything about your data..."):
                 response = model.generate_content(
                     prompt,
                     tools=[grounding_tool],
-                    generation_config={"temperature": 0.0,
-                    "max_output_tokens": 512,
+                    generation_config={"temperature": 0.0
+                    #,"max_output_tokens": 1024,
                     }
                 )
                 
