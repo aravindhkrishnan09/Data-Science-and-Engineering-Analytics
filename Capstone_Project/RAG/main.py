@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import vertexai
+import re
 from vertexai.preview.generative_models import GenerativeModel, Tool, grounding
 from dotenv import load_dotenv
 
@@ -54,9 +55,11 @@ def load_model():
         "gemini-2.5-flash",
         system_instruction=system_instruction
     )
-    return model, grounding_tool
+    
+    judge_model = GenerativeModel("gemini-2.5-flash")
+    return model, grounding_tool, judge_model
 
-model, grounding_tool = load_model()
+model, grounding_tool, judge_model = load_model()
 
 # --- 4. CHAT INTERFACE ---
 st.title("EV Battery Health Prediction Project RAG System")
@@ -90,6 +93,37 @@ if prompt := st.chat_input("Ask me anything about your data..."):
                 )
                 
                 answer_text = response.text
+                
+                # --- LLM-as-a-judge Evaluation Layer ---
+                eval_prompt = f"""
+                You are an evaluator for a RAG system. Check if the answer is relevant to the user query and faithful.
+                
+                User Query: {prompt}
+                System Answer: {answer_text}
+                
+                Score (1-5) for:
+                - Relevance (Does it directly answer the user's question?)
+                - Faithfulness (Does it seem grounded without hallucinations?)
+                
+                Format the output exactly as:
+                Relevance: [score]
+                Faithfulness: [score]
+                """
+                
+                eval_response = judge_model.generate_content(eval_prompt, generation_config={"temperature": 0.0})
+                
+                # Parse the scores
+                rel_match = re.search(r"Relevance:\s*([1-5])", eval_response.text, re.IGNORECASE)
+                faith_match = re.search(r"Faithfulness:\s*([1-5])", eval_response.text, re.IGNORECASE)
+                
+                relevance_score = int(rel_match.group(1)) if rel_match else 5
+                faithfulness_score = int(faith_match.group(1)) if faith_match else 5
+                
+                threshold = 3
+                if relevance_score < threshold or faithfulness_score < threshold:
+                    answer_text = "I don’t have enough reliable information to answer this question."
+                # ---------------------------------------
+                
                 st.markdown(answer_text)
                 
                 # Check for citations/grounding metadata
@@ -100,6 +134,12 @@ if prompt := st.chat_input("Ask me anything about your data..."):
                     sources = response.candidates[0].grounding_metadata.search_entry_point.rendered_content
                     with st.expander("📚 View Sources"):
                         st.markdown(sources, unsafe_allow_html=True)
+                
+                # Display evaluation scores for transparency
+                with st.expander("📊 Evaluation Metrics (LLM-as-a-Judge)"):
+                    st.write(f"**Relevance:** {relevance_score}/5")
+                    st.write(f"**Faithfulness:** {faithfulness_score}/5")
+                    st.caption("Answers scoring below the threshold (3) are replaced with a safety message.")
                 
                 # Add to history
                 st.session_state.messages.append({"role": "assistant", "content": answer_text})
